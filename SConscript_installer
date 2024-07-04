@@ -1,0 +1,49 @@
+import os
+from re import S
+import SCons.Environment
+import SCons.Script
+import SCons.Node.FS
+import sys
+import environment_custom_methods
+from git import Repo  # GitPython
+from SCons.Script.Main import Progress
+from colorama import Fore, Style
+import scons_utils
+import shutil
+from site_scons import ALIAS_BUILD, ALIAS_BUILD_AND_TEST, ALIAS_BUILD_INSTALLER
+
+# * ---- Set up the environment ----
+env: SCons.Environment.Environment
+SCons.Script.Import('env')
+env = env.Clone()
+
+# * ---- build installer script ----
+install_path = env.Dir('.').abspath
+def build_installer(target, source, env):
+	# execute "tests/run_api_tests.py"
+	curpath = os.getcwd()
+	try:
+		# execute "tests/run_cross_lang_tests.py"
+		os.chdir(install_path)
+
+		custom_env = env.Clone()
+		custom_env['ENV']['PATH'] = os.environ['PATH']
+		custom_env['ENV']['METAFFI_HOME'] = os.environ['METAFFI_HOME']
+
+		custom_env.Execute(f'{scons_utils.python3_executable()} build_installer.py')
+	except Exception as e:
+		print(f"Cross language tests failed: {e}", file=sys.stderr)
+		custom_env.Exit(1)
+	finally:
+		os.chdir(curpath)
+
+installer_cmd = env.Command(target='build_installer', source=[], action=build_installer)
+
+def move_installer(target, source, env):
+	rootdir = env.Dir('#').abspath
+	shutil.move(f"{rootdir}/metaffi-installer/metaffi_installer.py", f'{rootdir}/containers/metaffi_installer.py', copy_function=shutil.copy2)
+
+env.AddPostAction(installer_cmd, move_installer)
+
+env.Depends(installer_cmd, ALIAS_BUILD)
+env.Alias(ALIAS_BUILD_INSTALLER, installer_cmd)
