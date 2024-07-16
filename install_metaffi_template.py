@@ -83,7 +83,7 @@ def is_ubuntu():
 	if platform.system() != 'Linux':
 		return False
 	
-	import distro
+	import distro # type: ignore - applies only to linux
 	return distro.name() == 'Ubuntu'
 
 
