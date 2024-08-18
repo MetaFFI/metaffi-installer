@@ -119,10 +119,13 @@ def get_windows_metaffi_files():
 
 def get_ubuntu_metaffi_files():
 	files = []
+
+	metaffi_home = os.getenv('METAFFI_HOME')
+	assert metaffi_home is not None and os.path.isdir(metaffi_home), 'METAFFI_HOME is not set or is not a directory'
 	
 	# metaffi
 	files.extend(['xllr.so', 'metaffi', 'lib/libstdc++.so.6.0.30', 'lib/libc.so.6', 'lib/libboost_thread-mt-d-x64.so.1.79.0', 'lib/libboost_program_options-mt-d-x64.so.1.79.0', 'lib/libboost_filesystem-mt-d-x64.so.1.79.0'])
-	includes = glob.glob(os.path.join(os.getenv('METAFFI_HOME'), 'include', '*'))
+	includes = glob.glob(os.path.join(metaffi_home, 'include'))
 	includes = ['include/' + os.path.basename(incfile) for incfile in includes]
 	files.extend(includes)
 	
@@ -214,7 +217,7 @@ def main():
 	windows_zip = zip_installer_files(windows_files, f'./../output/windows/x64/debug/')
 	# ubuntu_zip = zip_installer_files(ubuntu_files, './../out/ubuntu/x64/debug/') # TODO: resume ubuntu!
 	
-	shutil.copy('install_metaffi_template.py', 'metaffi_installer.py')
+	shutil.copy('metaffi_installer_template.py', 'metaffi_installer.py')
 	
 	update_python_file('metaffi_installer.py', windows_zip, windows_zip) # TODO: replace windows zip with ubuntu zip when ubuntu is resumed
 	

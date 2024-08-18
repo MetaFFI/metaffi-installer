@@ -39,7 +39,7 @@ def install_pip_package(package_name: str):
 			raise Exception(f"Failed installing {package_name} with the command {command}. Error code {err_code}. Output:\n{stdout}{stderr}")
 
 
-def ask_user(input_text: str, default: str, valid_answers: list | None):
+def ask_user(input_text: str, default: str, valid_answers: list | None) -> str:
 	global is_silent
 	
 	if is_silent:
@@ -72,6 +72,7 @@ def ask_user(input_text: str, default: str, valid_answers: list | None):
 		
 		done = True
 	
+	assert answer is not None
 	return answer
 
 
@@ -126,6 +127,7 @@ def get_install_dir(default_dir: str):
 			install_dir = user_input
 			done = True
 	
+	assert install_dir is not None
 	install_dir = os.path.abspath(install_dir)
 	print('installing to ' + install_dir)
 	return install_dir
@@ -218,7 +220,7 @@ def run_shell(command: str, raise_if_command_fail: bool = False):
 		return e.returncode, str(e.stdout), str(e.stderr)
 	except FileNotFoundError as e:
 		if raise_if_command_fail:
-			raise f'Failed running {command} with {e.strerror}.\nfile: {e.filename}'
+			raise Exception(f'Failed running {command} with {e.strerror}.\nfile: {e.filename}')
 		
 		return 1, '', f'Failed running {command} with {e.strerror}.\nfile: {e.filename}'
 	
@@ -344,7 +346,9 @@ def python_exe() -> str:
 	if is_windows():
 		return 'python'
 	else:
-		return shutil.which('python3.11')
+		py_exe = shutil.which('python3.11')
+		assert py_exe is not None
+		return py_exe
 
 
 # ========== unitests ==========
@@ -772,7 +776,7 @@ def install_windows_go():
 
 
 def check_python_windows_installed(version: str):
-	from ctypes import wintypes
+	from ctypes import wintypes # pyright: ignore
 	
 	# split the version number into major, minor, and micro parts
 	major, minor = map(int, version.split("."))
@@ -823,6 +827,8 @@ def check_windows_pythonhome(version: str):
 	except OSError:
 		raise Exception(f"{dll_name} cannot be found. Please check your Python installation.")
 	
+	assert dll_path is not None
+
 	if "PYTHONHOME" in os.environ:
 		python_home_val = os.path.expandvars(os.environ['PYTHONHOME'])
 		python311_path = os.path.dirname(dll_path)
@@ -1116,6 +1122,8 @@ def check_ubuntu_pythonhome(version: str):
 	except OSError:
 		raise Exception(f"{exe_name} cannot be found. Please check your Python installation.")
 	
+	assert exe_path is not None
+
 	if "PYTHONHOME" in os.environ:
 		python_home_val = os.path.expanduser(os.environ['PYTHONHOME'])
 		maybe_python311_path = os.path.dirname(exe_path)
@@ -1182,6 +1190,7 @@ def check_ubuntu_java_jni_installed(version: str):
 		raise Exception(f"JAVA_HOME is already set, but it is set to {cur_java_home} and not to {java_location}. Update the environment variable and try again")
 	
 	# set JAVA_HOME
+	assert java_location is not None
 	set_ubuntu_machine_environment_variable('JAVA_HOME', java_location)
 	
 	# Try to load libjvm.so
@@ -1378,7 +1387,7 @@ def install_ubuntu():
 	global ubuntu_x64_zip
 	
 	# verify running as admin
-	is_admin = os.getuid() == 0
+	is_admin = os.getuid() == 0 # pyright: ignore
 	if not is_admin:
 		raise Exception('Installer must run as sudo')
 	
@@ -1461,7 +1470,7 @@ def main():
 		if platform.system() == 'Windows':
 			install_windows()
 		elif platform.system() == 'Linux':
-			import distro
+			import distro # pyright: ignore
 			if distro.name() == 'Ubuntu':
 				install_ubuntu()
 			else:
