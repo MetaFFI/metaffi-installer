@@ -69,9 +69,10 @@ def get_windows_metaffi_files():
 	system32 = os.environ['SystemRoot']+'/system32/'
 	files.extend(['xllr.dll', 'metaffi.exe', (f'{system32}msvcp140.dll', 'msvcp140.dll'), (f'{system32}vcruntime140_1d.dll', 'vcruntime140_1d.dll'), (f'{system32}vcruntime140d.dll', 'vcruntime140d.dll'), 'boost_filesystem.dll', 'boost_program_options.dll', (f'{system32}msvcp140d.dll', 'msvcp140d.dll'), (f'{system32}ucrtbased.dll', 'ucrtbased.dll')])
 	
-	metaffi_home = os.getenv('METAFFI_HOME')
-	if metaffi_home is None or not os.path.isdir(metaffi_home):
-		raise Exception('METAFFI_HOME is not set or is not a directory')
+	metaffi_home = os.getenv('SCONS_OUTPUT_WIN_METAFFI_HOME')
+	assert metaffi_home is not None, 'SCONS_OUTPUT_WIN_METAFFI_HOME is not set'
+	metaffi_home = './../' + metaffi_home.replace('\\', '/')
+	assert os.path.isdir(metaffi_home), f'SCONS_OUTPUT_WIN_METAFFI_HOME is not a directory. metaffi_home={metaffi_home}. current dir={os.getcwd()}'
 
 	# include files
 	includes = glob.glob(f'{metaffi_home}/include/*')
@@ -120,23 +121,27 @@ def get_windows_metaffi_files():
 def get_ubuntu_metaffi_files():
 	files = []
 
-	metaffi_home = os.getenv('METAFFI_HOME')
-	assert metaffi_home is not None and os.path.isdir(metaffi_home), 'METAFFI_HOME is not set or is not a directory'
+	metaffi_home = os.getenv('SCONS_OUTPUT_UBUNTU_METAFFI_HOME')
+	assert metaffi_home is not None, 'SCONS_OUTPUT_UBUNTU_METAFFI_HOME is not set'
+	metaffi_home = './../' + metaffi_home.replace('\\', '/')
+	assert os.path.isdir(metaffi_home), f'SCONS_OUTPUT_UBUNTU_METAFFI_HOME is not a directory. metaffi_home={metaffi_home}. current dir={os.getcwd()}'
 	
 	# metaffi
-	files.extend(['xllr.so', 'metaffi', 'lib/libstdc++.so.6.0.30', 'lib/libc.so.6', 'lib/libboost_thread-mt-d-x64.so.1.79.0', 'lib/libboost_program_options-mt-d-x64.so.1.79.0', 'lib/libboost_filesystem-mt-d-x64.so.1.79.0'])
-	includes = glob.glob(os.path.join(metaffi_home, 'include'))
+	files.extend(['xllr.so', 'metaffi', 'libboost_filesystem.so.1.85.0', 'libboost_program_options.so.1.85.0', 'libboost_stacktrace_from_exception.so.1.85.0', 'libboost_thread.so.1.85.0'])
+	
+	# include files
+	includes = glob.glob(f'{metaffi_home}/include/*')
 	includes = ['include/' + os.path.basename(incfile) for incfile in includes]
 	files.extend(includes)
 	
 	# python plugin
-	files.extend(['xllr.python311.so'])
+	files.extend(['python311/xllr.python311.so', 'python311/libboost_filesystem.so.1.85.0', 'python311/libboost_stacktrace_from_exception.so.1.85.0', 'python311/libboost_thread.so.1.85.0'])
 	
 	# go plugin
-	files.extend(['xllr.go.so', 'metaffi.compiler.go.so', 'metaffi.idl.go.so'])
+	files.extend(['go/xllr.go.so', 'go/metaffi.compiler.go.so', 'go/metaffi.idl.go.so', 'go/libboost_filesystem.so.1.85.0'])
 	
 	# openjdk plugin
-	files.extend(['xllr.openjdk.so', 'xllr.openjdk.bridge.jar', 'xllr.openjdk.jni.bridge.so', 'metaffi.api.jar'])
+	files.extend(['openjdk/libboost_filesystem.so.1.85.0', 'openjdk/libboost_stacktrace_from_exception.so.1.85.0', 'openjdk/libboost_thread.so.1.85.0', 'openjdk/metaffi.api.jar', 'openjdk/xllr.openjdk.bridge.jar', 'openjdk/xllr.openjdk.jni.bridge.so', 'openjdk/xllr.openjdk.so'])
 	
 	# Tests to run after installation
 	def add_dir_test_files(paths, arc_root, prefix_to_remove):
@@ -159,67 +164,28 @@ def get_ubuntu_metaffi_files():
 		test_files = tmp
 		files.extend(test_files)
 	
-	add_dir_test_files(['../../lang-plugin-go/api/tests/**'], 'tests/go/', '../../lang-plugin-go/api/tests')
-	add_dir_test_files(['../../lang-plugin-openjdk/api/tests/**'], 'tests/openjdk/', '../../lang-plugin-openjdk/api/tests')
-	add_dir_test_files(['../../lang-plugin-python3/api/tests/**'], 'tests/python3/', '../../lang-plugin-python3/api/tests')
+	add_dir_test_files(['../lang-plugin-go/api/tests/**'], 'tests/go/', '../lang-plugin-go/api/tests')
+	add_dir_test_files(['../lang-plugin-openjdk/api/tests/**'], 'tests/openjdk/', '../lang-plugin-openjdk/api/tests')
+	add_dir_test_files(['../lang-plugin-python3/api/tests/**'], 'tests/python3/', '../lang-plugin-python3/api/tests')
 	
 	return files
 
 
-# TODO: When running the executable installer, the test stage in the installer
-# that checks if Python installed detects the temporary python within the installer
-# def create_executables():
-# 	import PyInstaller.__main__
-#
-# 	# Define the name of your script
-# 	script_name = "install_metaffi.py"
-#
-# 	# make for Windows
-# 	if platform.system() == 'Windows':
-# 		PyInstaller.__main__.run([
-# 			script_name,  # The name of your script
-# 			"--uac-uiaccess",  # elevate process
-# 			"--onefile",  # Create a single file executable
-# 			"--name", "metaffi_installer.exe",  # The name of the output executable
-# 		])
-# 	else:
-# 		print('Running in Ubuntu - skipping making executable installer for windows')
-#
-# 	# make for ubuntu
-# 	if platform.system() == 'Windows':
-# 		# NOTICE: assume wsl exists and its python has PyInstaller installed!
-# 		command = f"wsl pyinstaller {script_name} --onefile --name metaffi_installer"
-# 		# Run the command using subprocess.run
-# 		output = subprocess.run(command, capture_output=True, text=True)
-# 		if output.returncode != 0:
-# 			raise Exception(f'pyinstaller via wsl failed. Error: {output.returncode}.\nstdout:{str(output.stdout)}\nstderr:{str(output.stderr)}')
-# 	else:
-# 		PyInstaller.__main__.run([
-# 			script_name,  # The name of your script
-# 			"--onefile",  # Create a single file executable
-# 			"--name", "metaffi_installer",  # The name of the output executable
-# 		])
-#
-# 	# cleanup
-# 	shutil.rmtree('build')
-# 	os.remove('metaffi_installer.exe.spec')
-# 	os.remove('metaffi_installer.spec')
-# 	shutil.move('dist/metaffi_installer.exe', 'metaffi_installer.exe')
-# 	shutil.move('dist/metaffi_installer', 'metaffi_installer')
-# 	shutil.rmtree('dist')
-
-
 def main():
+
+	# TODO: when building an installer, we need to remove from go.mod files the replace directive
+	
+
 	windows_files = get_windows_metaffi_files()
-	# ubuntu_files = get_ubuntu_metaffi_files() # TODO: resume ubuntu!
+	ubuntu_files = get_ubuntu_metaffi_files()
 	
 	
 	windows_zip = zip_installer_files(windows_files, f'./../output/windows/x64/debug/')
-	# ubuntu_zip = zip_installer_files(ubuntu_files, './../out/ubuntu/x64/debug/') # TODO: resume ubuntu!
+	ubuntu_zip = zip_installer_files(ubuntu_files, './../output/ubuntu/x64/debug/')
 	
 	shutil.copy('metaffi_installer_template.py', 'metaffi_installer.py')
 	
-	update_python_file('metaffi_installer.py', windows_zip, windows_zip) # TODO: replace windows zip with ubuntu zip when ubuntu is resumed
+	update_python_file('metaffi_installer.py', windows_zip, ubuntu_zip)
 	
 	
 	print('Done')

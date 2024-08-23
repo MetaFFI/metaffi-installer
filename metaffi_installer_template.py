@@ -1104,8 +1104,8 @@ def check_python_ubuntu_installed(version: str):
 		if reply == 'n':
 			raise Exception(f"{exe_name} cannot be found. Please check your Python {version} is installed, and in PATH environment variable")
 		
-		# install python
-		exit_code, stdout, stderr = run_command(f'apt install {exe_name} -y')
+		# install python and python-dev (for the libraries to embed python in C)
+		exit_code, stdout, stderr = run_command(f'apt install {exe_name} {exe_name}-dev -y')
 		if exit_code != 0:
 			raise Exception(f'Failed to install {exe_name}. Output\n{stdout}{stderr}')
 

@@ -28,7 +28,8 @@ def build_installer(target, source, env):
 
 		custom_env = env.Clone()
 		custom_env['ENV']['PATH'] = os.environ['PATH']
-		custom_env['ENV']['METAFFI_HOME'] = os.environ['METAFFI_HOME']
+		custom_env['ENV']['SCONS_OUTPUT_WIN_METAFFI_HOME'] = env.Dir('#').Dir('output').Dir('windows').Dir('x64').Dir('debug').path
+		custom_env['ENV']['SCONS_OUTPUT_UBUNTU_METAFFI_HOME'] = env.Dir('#').Dir('output').Dir('ubuntu').Dir('x64').Dir('debug').path
 
 		exit_code = custom_env.Execute(f'{scons_utils.python3_executable()} build_installer.py')
 		if exit_code:
@@ -36,7 +37,7 @@ def build_installer(target, source, env):
 			sys.exit(1)
 	except Exception as e:
 		print(f"Failed building installer: {e}", file=sys.stderr)
-		custom_sys.exit(1)
+		sys.exit(1)
 	finally:
 		os.chdir(curpath)
 
