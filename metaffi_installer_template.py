@@ -16,6 +16,7 @@ import urllib.request
 
 windows_x64_zip = 'windows_x64_zip_data'
 ubuntu_x64_zip = 'ubuntu_x64_zip_data'
+METAFFI_VERSION = '0.0.0'
 
 is_silent = False
 is_skip_tests = False
@@ -381,25 +382,25 @@ def run_go_tests():
 		if err_code != 0:
 			raise Exception(f'Failed "go get" in path {path}.\n{stdout}{stderr}')
 		
-		err_code, stdout, stderr = run_command('go get github.com/MetaFFI/plugin-sdk@main')
+		err_code, stdout, stderr = run_command(f'go get github.com/MetaFFI/plugin-sdk@v{METAFFI_VERSION}')
 		if err_code != 0:
-			raise Exception(f'Failed "go get github.com/MetaFFI/plugin-sdk@main" in path {path}.\n{stdout}{stderr}')
+			raise Exception(f'Failed f"go get github.com/MetaFFI/plugin-sdk@v{METAFFI_VERSION}" in path {path}.\n{stdout}{stderr}')
 
-		err_code, stdout, stderr = run_command('go get github.com/MetaFFI/lang-plugin-go/compiler@main')
+		err_code, stdout, stderr = run_command(f'go get github.com/MetaFFI/lang-plugin-go/compiler@v{METAFFI_VERSION}')
 		if err_code != 0:
-			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/compiler@main" in path {path}.\n{stdout}{stderr}')
+			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/compiler@v{METAFFI_VERSION}" in path {path}.\n{stdout}{stderr}')
 		
-		err_code, stdout, stderr = run_command('go get github.com/MetaFFI/lang-plugin-go/go-runtime@main')
+		err_code, stdout, stderr = run_command(f'go get github.com/MetaFFI/lang-plugin-go/go-runtime@v{METAFFI_VERSION}')
 		if err_code != 0:
-			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/go-runtime@main" in path {path}.\n{stdout}{stderr}')
+			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/go-runtime@v{METAFFI_VERSION}" in path {path}.\n{stdout}{stderr}')
 		
-		err_code, stdout, stderr = run_command('go get github.com/MetaFFI/lang-plugin-go/api@main')
+		err_code, stdout, stderr = run_command(f'go get github.com/MetaFFI/lang-plugin-go/api@v{METAFFI_VERSION}')
 		if err_code != 0:
-			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/api@main" in path {path}.\n{stdout}{stderr}')
+			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/api@v{METAFFI_VERSION}" in path {path}.\n{stdout}{stderr}')
 		
-		err_code, stdout, stderr = run_command('go get github.com/MetaFFI/lang-plugin-go/idl@main')
+		err_code, stdout, stderr = run_command(f'go get github.com/MetaFFI/lang-plugin-go/idl@v{METAFFI_VERSION}')
 		if err_code != 0:
-			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/idl@main" in path {path}.\n{stdout}{stderr}')
+			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/idl@v{METAFFI_VERSION}" in path {path}.\n{stdout}{stderr}')
 
 		
 		err_code, stdout, stderr = run_command('go build')
@@ -429,25 +430,25 @@ def run_extended_go_tests():
 		if err_code != 0:
 			raise Exception(f'Failed "go get" in path {path}.\n{stdout}{stderr}')
 		
-		err_code, stdout, stderr = run_command('go get github.com/MetaFFI/plugin-sdk@main')
+		err_code, stdout, stderr = run_command(f'go get github.com/MetaFFI/plugin-sdk@v{METAFFI_VERSION}')
 		if err_code != 0:
-			raise Exception(f'Failed "go get github.com/MetaFFI/plugin-sdk@main" in path {path}.\n{stdout}{stderr}')
+			raise Exception(f'Failed "go get github.com/MetaFFI/plugin-sdk@v{METAFFI_VERSION}" in path {path}.\n{stdout}{stderr}')
 
-		err_code, stdout, stderr = run_command('go get github.com/MetaFFI/lang-plugin-go/compiler@main')
+		err_code, stdout, stderr = run_command(f'go get github.com/MetaFFI/lang-plugin-go/compiler@v{METAFFI_VERSION}')
 		if err_code != 0:
-			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/compiler@main" in path {path}.\n{stdout}{stderr}')
+			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/compiler@v{METAFFI_VERSION}" in path {path}.\n{stdout}{stderr}')
 		
-		err_code, stdout, stderr = run_command('go get github.com/MetaFFI/lang-plugin-go/go-runtime@main')
+		err_code, stdout, stderr = run_command(f'go get github.com/MetaFFI/lang-plugin-go/go-runtime@v{METAFFI_VERSION}')
 		if err_code != 0:
-			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/go-runtime@main" in path {path}.\n{stdout}{stderr}')
+			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/go-runtime@v{METAFFI_VERSION}" in path {path}.\n{stdout}{stderr}')
 		
-		err_code, stdout, stderr = run_command('go get github.com/MetaFFI/lang-plugin-go/api@main')
+		err_code, stdout, stderr = run_command(f'go get github.com/MetaFFI/lang-plugin-go/api@v{METAFFI_VERSION}')
 		if err_code != 0:
-			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/api@main" in path {path}.\n{stdout}{stderr}')
+			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/api@v{METAFFI_VERSION}" in path {path}.\n{stdout}{stderr}')
 		
-		err_code, stdout, stderr = run_command('go get github.com/MetaFFI/lang-plugin-go/idl@main')
+		err_code, stdout, stderr = run_command(f'go get github.com/MetaFFI/lang-plugin-go/idl@v{METAFFI_VERSION}')
 		if err_code != 0:
-			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/idl@main" in path {path}.\n{stdout}{stderr}')
+			raise Exception(f'Failed "go get github.com/MetaFFI/lang-plugin-go/idl@v{METAFFI_VERSION}" in path {path}.\n{stdout}{stderr}')
 
 		err_code, stdout, stderr = run_command('go build')
 		if err_code != 0:

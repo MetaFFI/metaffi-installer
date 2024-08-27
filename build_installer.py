@@ -8,6 +8,7 @@ import re
 from typing import List
 import platform
 import subprocess
+from version import METAFFI_VERSION
 
 from metaffi import metaffi_type_info
 
@@ -42,7 +43,7 @@ def zip_installer_files(files: List[str], root: str):
 	return buffer.getvalue()
 
 
-def update_python_file(python_source_filename, windows_zip, ubuntu_zip):
+def update_python_file(python_source_filename, windows_zip, ubuntu_zip, version):
 	# Encode the binary data to base64 strings
 	windows_zip_str = base64.b64encode(windows_zip)
 	ubuntu_zip_str = base64.b64encode(ubuntu_zip)
@@ -55,6 +56,7 @@ def update_python_file(python_source_filename, windows_zip, ubuntu_zip):
 	# Find and replace the variables with the encoded strings
 	source_code = re.sub(r"windows_x64_zip\s*=\s*.+", f"windows_x64_zip = {windows_zip_str}", source_code, count=1)
 	source_code = re.sub(r"ubuntu_x64_zip\s*=\s*.+", f"ubuntu_x64_zip = {ubuntu_zip_str}", source_code, count=1)
+	source_code = re.sub(r"METAFFI_VERSION\s*=\s*.+", f"METAFFI_VERSION = '{version}'", source_code, count=1)
 	
 	# Open the source file in write mode
 	with open(python_source_filename, "w") as f:
@@ -185,7 +187,7 @@ def main():
 	
 	shutil.copy('metaffi_installer_template.py', 'metaffi_installer.py')
 	
-	update_python_file('metaffi_installer.py', windows_zip, ubuntu_zip)
+	update_python_file('metaffi_installer.py', windows_zip, ubuntu_zip, METAFFI_VERSION)
 	
 	
 	print('Done')
