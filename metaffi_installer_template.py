@@ -188,7 +188,7 @@ def run_command(command: str, raise_if_command_fail: bool = False, is_refresh_en
 		if raise_if_command_fail:
 			raise Exception(f'Failed running {command} with {e.strerror}.\nfile: {e.filename}')
 		
-		return f'Failed running {command} with {e.strerror}.\nfile: {e.filename}', '', ''
+		return f'Failed running {command} with {e.strerror}\n{e}.\nfile: {e.filename}', '', ''
 	
 	all_stdout = output.stdout
 	all_stderr = output.stderr
@@ -406,7 +406,7 @@ def run_go_tests():
 		err_code, stdout, stderr = run_command('go build')
 		if err_code != 0:
 			raise Exception(f'Failed "go build" in path {path}.\n{stdout}{stderr}')
-		
+				
 		err_code, stdout, stderr = run_command(exec_name)
 		os.remove(exec_name)
 		if err_code != 0:
