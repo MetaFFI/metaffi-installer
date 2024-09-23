@@ -10,7 +10,6 @@ import platform
 import subprocess
 from version import METAFFI_VERSION
 
-from metaffi import metaffi_type_info
 
 
 def zip_installer_files(files: List[str], root: str):
@@ -43,13 +42,13 @@ def zip_installer_files(files: List[str], root: str):
 	return buffer.getvalue()
 
 
-def update_python_file(python_source_filename, windows_zip, ubuntu_zip, version):
+def create_installer_file(python_source_filename, windows_zip, ubuntu_zip, version):
 	# Encode the binary data to base64 strings
 	windows_zip_str = base64.b64encode(windows_zip)
 	ubuntu_zip_str = base64.b64encode(ubuntu_zip)
 	
 	# Open the source file in read mode
-	with open(python_source_filename, "r") as f:
+	with open('metaffi_installer_template.py', "r") as f:
 		# Read the source code as a string
 		source_code = f.read()
 	
@@ -81,42 +80,6 @@ def get_windows_metaffi_files():
 	includes = ['include/' + os.path.basename(incfile) for incfile in includes]
 	files.extend(includes)
 	
-	
-	# python plugin
-	files.extend(['python311/xllr.python311.dll', 'python311/boost_filesystem.dll'])
-	
-	# go plugin
-	files.extend(['go/xllr.go.dll', 'go/metaffi.compiler.go.dll', 'go/metaffi.idl.go.dll', 'go/boost_filesystem.dll'])
-	
-	# openjdk plugin
-	files.extend(['openjdk/xllr.openjdk.dll', 'openjdk/xllr.openjdk.bridge.jar', 'openjdk/xllr.openjdk.jni.bridge.dll', 'openjdk/metaffi.api.jar', 'openjdk/boost_filesystem.dll'])
-	
-	
-	# Tests to run after installation
-	def add_dir_test_files(paths, arc_root, prefix_to_remove):
-		# sanity tests
-		test_files = []
-		for path in paths:
-			found = glob.glob(path, recursive=True)
-			if found is None or len(found) == 0:
-				raise Exception('failed to find files in '+path)
-			
-			test_files.extend(found)
-		
-		if len(test_files) == 0:
-			raise Exception('failed to find dir files plugin sanity tests')
-		
-		test_files = [path for path in test_files if os.path.isfile(path) and not path.endswith('.pyc')]
-		tmp = []
-		for f in test_files:
-			tmp.append((os.path.abspath(f), arc_root+f.replace(prefix_to_remove, '')))
-		test_files = tmp
-		files.extend(test_files)
-	
-	add_dir_test_files(['../lang-plugin-go/api/tests/**'], 'tests/go/', '../lang-plugin-go/api/tests')
-	add_dir_test_files(['../lang-plugin-openjdk/api/tests/**'], 'tests/openjdk/', '../lang-plugin-openjdk/api/tests')
-	add_dir_test_files(['../lang-plugin-python3/api/tests/**'], 'tests/python3/', '../lang-plugin-python3/api/tests')
-	
 	return files
 
 
@@ -136,60 +99,21 @@ def get_ubuntu_metaffi_files():
 	includes = ['include/' + os.path.basename(incfile) for incfile in includes]
 	files.extend(includes)
 	
-	# python plugin
-	files.extend(['python311/xllr.python311.so', 'python311/libboost_filesystem.so.1.85.0', 'python311/libboost_stacktrace_from_exception.so.1.85.0', 'python311/libboost_thread.so.1.85.0'])
-	
-	# go plugin
-	files.extend(['go/xllr.go.so', 'go/metaffi.compiler.go.so', 'go/metaffi.idl.go.so', 'go/libboost_filesystem.so.1.85.0'])
-	
-	# openjdk plugin
-	files.extend(['openjdk/libboost_filesystem.so.1.85.0', 'openjdk/libboost_stacktrace_from_exception.so.1.85.0', 'openjdk/libboost_thread.so.1.85.0', 'openjdk/metaffi.api.jar', 'openjdk/xllr.openjdk.bridge.jar', 'openjdk/xllr.openjdk.jni.bridge.so', 'openjdk/xllr.openjdk.so'])
-	
-	# Tests to run after installation
-	def add_dir_test_files(paths, arc_root, prefix_to_remove):
-		# sanity tests
-		test_files = []
-		for path in paths:
-			found = glob.glob(path, recursive=True)
-			if found is None or len(found) == 0:
-				raise Exception('failed to find files in '+path)
-			
-			test_files.extend(found)
-		
-		if len(test_files) == 0:
-			raise Exception('failed to find dir files plugin sanity tests')
-		
-		test_files = [path for path in test_files if os.path.isfile(path) and not path.endswith('.pyc')]
-		tmp = []
-		for f in test_files:
-			tmp.append((os.path.abspath(f), arc_root+f.replace(prefix_to_remove, '')))
-		test_files = tmp
-		files.extend(test_files)
-	
-	add_dir_test_files(['../lang-plugin-go/api/tests/**'], 'tests/go/', '../lang-plugin-go/api/tests')
-	add_dir_test_files(['../lang-plugin-openjdk/api/tests/**'], 'tests/openjdk/', '../lang-plugin-openjdk/api/tests')
-	add_dir_test_files(['../lang-plugin-python3/api/tests/**'], 'tests/python3/', '../lang-plugin-python3/api/tests')
-	
 	return files
 
 
 def main():
 
-	# TODO: when building an installer, we need to remove from go.mod files the replace directive
-	
-
 	windows_files = get_windows_metaffi_files()
 	ubuntu_files = get_ubuntu_metaffi_files()
-	
 	
 	windows_zip = zip_installer_files(windows_files, f'./../output/windows/x64/debug/')
 	ubuntu_zip = zip_installer_files(ubuntu_files, './../output/ubuntu/x64/debug/')
 	
 	shutil.copy('metaffi_installer_template.py', 'metaffi_installer.py')
 	
-	update_python_file('metaffi_installer.py', windows_zip, ubuntu_zip, METAFFI_VERSION)
-	
-	
+	create_installer_file('metaffi_installer.py', windows_zip, ubuntu_zip, METAFFI_VERSION)
+		
 	print('Done')
 
 

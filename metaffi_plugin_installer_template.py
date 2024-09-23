@@ -7,182 +7,45 @@ import shutil
 import sys
 import ctypes
 import os
+import tempfile
 import traceback
 import typing
 import zipfile
 import subprocess
-import importlib
-import sys
-
-def ensure_package(package_name, pip_package_name=None):
-	try:
-		importlib.import_module(package_name)
-	except ImportError:
-		import subprocess
-		import sys
-		print(f"Installing {package_name}...")
-		
-		if pip_package_name is None:
-			pip_package_name = package_name
-			
-		subprocess.check_call([sys.executable, "-m", "pip", "install", pip_package_name])
-		
-		print(f"{package_name} installed successfully!")
-
-
-# Example: Check and install colorama
-ensure_package("pycrosskit")
-from pycrosskit.envariables import SysEnv
+import urllib.request
 
 windows_x64_zip = 'windows_x64_zip_data'
 ubuntu_x64_zip = 'ubuntu_x64_zip_data'
-METAFFI_VERSION = '0.0.0'
+PLUGIN_VERSION = '0.0.0'
+PLUGIN_NAME=""
 
-is_silent = False
+def setup_environment():
+	pass
 
-run_api_tests_script = """
-import os
-import sys
-import subprocess
-import glob
+def check_prerequisites() -> bool:
+	pass
 
-# iterate over all the directories in $METAFFI_HOME (the plugins) but "include" directory
-# for each directory, check if the directory contains a "plugin_api_tests" directory
-# if it doesn't, print a warning message and continue to the next directory
-# if it does, run "run_api_tests.py" in the "plugin_api_tests" directory
-# if the script fails, print an error message and exit with a non-zero exit code
-metaffi_home = os.environ['METAFFI_HOME']
-if metaffi_home is None:
-	print('METAFFI_HOME is not set')
-	sys.exit(1)
-
-metaffi_home = os.path.abspath(metaffi_home)
-
-# iterate over all the directories in $METAFFI_HOME (the plugins) but "include" directory
-for plugindir in os.listdir(metaffi_home):
-	if plugindir == 'include':
-		continue
-		
-	if not os.path.isdir(f'{metaffi_home}/{plugindir}'): # skip files
-		continue
-	
-	# find run_api_tests.py in plugin directory using glob
-	run_api_tests_script_path = glob.glob(f"{metaffi_home}/{plugindir}/**/run_api_tests.py", recursive=True)
-	if len(run_api_tests_script_path) == 0:
-		print(f'Warning: {plugindir} does not have API tests (run_api_tests.py) - skipping...')
-		continue
-
-	if len(run_api_tests_script_path) > 1:
-		print(f'Error: {plugindir} has more than one run_api_tests.py script - skipping...')
-		continue
-		
-	run_api_tests_script_path = run_api_tests_script_path[0]
-		
-	# run "run_api_tests.py" in the "plugin_api_tests" directory using "subprocess"
-	# make sure the STDOUT and STDERR are written to the console and the current directory
-	# of the process is the "plugin_api_tests" directory
-	print(f'Running API tests for {plugindir} ({run_api_tests_script_path})')
-	
-	try:
-		# get run_api_tests_script_path directory
-		plugin_tests_dir = os.path.dirname(run_api_tests_script_path)	
-	
-		subprocess.run([sys.executable, run_api_tests_script_path], cwd=plugin_tests_dir, check=True)
-	except subprocess.CalledProcessError as e:
-		print(f'Error: {run_api_tests_script_path} failed with exit code {e.returncode}')
-		sys.exit(e.returncode)
-
-print('All tests passed')
-"""
-
-uninstall_script = """
-# iterate over all the directories in $METAFFI_HOME (the plugins) but "include" directory
-# for each directory, check if the directory contains a "uninstall.sh" script
-# if it doesn't, print a warning message and force-delete the directory recursively
-# if it does, run "uninstall.sh" in the directory and then force-delete the directory recursively (if the directory still exists)
-
-# delete $METAFFI_HOME directory
-# remove METAFFI_HOME from the environment variables (make sure it is removed permanently)
-import importlib
-import sys
-import subprocess
-
-def ensure_package(package_name, pip_package_name=None):
-	try:
-		importlib.import_module(package_name)
-	except ImportError:
-		import subprocess
-		import sys
-		print(f"Installing {package_name}...")
-		
-		if pip_package_name is None:
-			pip_package_name = package_name
-			
-		subprocess.check_call([sys.executable, "-m", "pip", "install", pip_package_name])
-		
-		print(f"{package_name} installed successfully!")
-
-ensure_package("shutil")
-ensure_package("pycrosskit")
-
-import os
-import sys
-import subprocess
-import platform
-import shutil
-from pycrosskit.envariables import SysEnv
-
-metaffi_home = os.environ['METAFFI_HOME']
-if metaffi_home is None:
-	print('METAFFI_HOME is not set.')
-	print('if you try to uninstall MetaFFI, please remove the installation directory manually, and remove METAFFI_HOME from the environment variables')
-	print('for each plugin, you will need to run their corresponding uninstall script if such exists. If not, you will need to remove the plugin directory manually and revert their environmental changes')
-	sys.exit(1)
-
-metaffi_home = os.path.abspath(metaffi_home)
-for plugindir in os.listdir(metaffi_home):
-	if plugindir == 'include':
-		continue
-		
-	print(f'Uninstalling {plugindir}')
-
-	uninstall_script_path = os.path.join(metaffi_home, plugindir, 'uninstall_plugin.py')
-	if not os.path.isfile(uninstall_script_path):
-		shutil.rmtree(os.path.join(metaffi_home, plugindir), ignore_errors=True)
-		continue
-		
-	try:
-		subprocess.run([uninstall_script_path], check=True)
-
-		# if directory still exists, force-delete it
-		if os.path.exists(os.path.join(metaffi_home, plugindir)):
-			shutil.rmtree(os.path.join(metaffi_home, plugindir), ignore_errors=True)
-	except subprocess.CalledProcessError as e:
-		print(f'Error: {uninstall_script_path} failed with exit code {e.returncode}')
-		sys.exit(e.returncode)
-
-shutil.rmtree(metaffi_home, ignore_errors=True)
-SysEnv().unset('METAFFI_HOME')
-
-# if windows - remove METAFFI_HOME from the environment variables permanently
-# using powershell
-if platform.system() == 'Windows':
-	subprocess.run(['powershell', '[System.Environment]::SetEnvironmentVariable("METAFFI_HOME", $null, "Machine")'], check=True)
-
-print('Uninstallation completed successfully')
-
-
-"""
+def print_prerequisites():
+	pass
 
 # ====================================
 
-def ask_user(input_text: str, default: str, valid_answers: list | None) -> str:
-	global is_silent
+def install_pip_package(package_name: str):
+	command = f"pip show {package_name}"
+	err_code, stdout, stderr = run_command(command, False, False)
 	
-	if is_silent:
-		if default is None or default == '':
-			raise Exception(f"internal error - missing default value in silent mode.\n{input_text}\n{valid_answers}")
-		return default
+	if err_code != 0:
+		reply = ask_user(f'{package_name} python package is required for the installation, do you want me to install it?', 'y', ['y', 'n'])
+		if reply == 'n':
+			raise Exception(f'Cannot continue without {package_name}, please install it and try again')
+		
+		command = f"{sys.executable} -m pip install {package_name}"
+		err_code, stdout, stderr = run_command(command, True, False)
+		if err_code != 0:
+			raise Exception(f"Failed installing {package_name} with the command {command}. Error code {err_code}. Output:\n{stdout}{stderr}")
+
+
+def ask_user(input_text: str, default: str, valid_answers: list | None) -> str:
 	
 	done = False
 	
@@ -233,43 +96,6 @@ def is_path_string_valid(maybepath: str) -> bool:
 		return False
 
 
-def get_install_dir(default_dir: str):
-	install_dir = None
-	
-	# If METAFFI_HOME environment variable is set, return its value
-	if "METAFFI_HOME" in os.environ:
-		install_dir = os.environ["METAFFI_HOME"]
-	
-	# Otherwise, ask the user for the installation directory
-	else:
-		done = False
-		while not done:
-			# Ask the user for the input
-			user_input = ask_user(f"Where to install? Notice due to limitations in some languages, it is recommended not to use whitespaces.", default_dir, None)
-			
-			user_input = os.path.expanduser(os.path.expandvars(user_input))
-			
-			if ' ' in user_input:
-				print('Installation directory mustn\'t contains whitespace')
-				continue
-			
-			if not is_path_string_valid(user_input):
-				print(f'Given path "{user_input}" is not valid')
-				continue
-			
-			are_you_sure = ask_user(f'Are you sure you want to install to "{user_input}"?', 'y', ['y', 'n'])
-			if are_you_sure.strip().lower() == 'n':
-				continue
-			
-			install_dir = user_input
-			done = True
-	
-	assert install_dir is not None
-	install_dir = os.path.abspath(install_dir)
-	print('installing to ' + install_dir)
-	return install_dir
-
-
 # Define the function
 def unpack_into_directory(base64_zip_file, target_directory):
 	# Decode the base64 string to a byte array
@@ -293,9 +119,8 @@ def unpack_into_directory(base64_zip_file, target_directory):
 refresh_env: typing.Callable
 
 
-def command(command: str, raise_if_command_fail: bool = False, is_refresh_envvars: bool = True):
+def run_command(command: str, raise_if_command_fail: bool = False, is_refresh_envvars: bool = True):
 	global refresh_env
-	global is_silent
 	
 	if is_windows():
 		print(f'{os.getcwd()}> {command}')
@@ -310,8 +135,7 @@ def command(command: str, raise_if_command_fail: bool = False, is_refresh_envvar
 		command_split = shlex.split(os.path.expanduser(os.path.expandvars(command)))
 		
 		env = os.environ.copy()
-		if is_silent and not is_windows():
-			env["DEBIAN_FRONTEND"] = "noninteractive"
+		env["DEBIAN_FRONTEND"] = "noninteractive"
 		
 		output = subprocess.run(command_split, capture_output=True, text=True, env=env)
 	except subprocess.CalledProcessError as e:
@@ -369,6 +193,17 @@ def run_shell(command: str, raise_if_command_fail: bool = False):
 	
 	# if the return code is not zero, raise an exception
 	return output.returncode, all_stdout, all_stderr
+
+
+
+# ========== unitests ==========
+
+def get_exe_format(execname):
+	if platform.system() == 'Windows':
+		return f'{execname}.exe'
+	else:
+		return f'./{execname}'
+
 
 
 # ========== windows ===========
@@ -513,34 +348,63 @@ elif is_ubuntu():
 	refresh_env = refresh_ubuntu_env
 
 
-def install_windows() -> str:
+def install():
 	global windows_x64_zip
+	global ubuntu_x64_zip
+
+	if not check_prerequisites():
+		print('Prerequisites not met. Please make sure all prerequisites are installed and try again.')
+		print_prerequisites()
+		sys.exit(1)
+
+	x64_zip = None
 	
-	# verify running as admin
-	is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
-	if not is_admin:
-		raise Exception('User must have admin privileges')
+	if is_windows():
+		# verify running as admin
+		is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+		if not is_admin:
+			raise Exception('User must have admin privileges')
+		
+		refresh_windows_env()  # refresh environment variables, in case the environment is not up-to-date
+
+		x64_zip = windows_x64_zip
+	elif is_ubuntu():
+		# verify running as root
+		is_admin = os.getuid() == 0 # pyright: ignore
+		if not is_admin:
+			raise Exception('Installer must run as sudo')
+		
+		refresh_ubuntu_env()  # refresh environment variables, in case the environment is not up-to-date
+
+		x64_zip = ubuntu_x64_zip
+	else:
+		raise Exception('Unsupported OS')
 	
-	refresh_windows_env()  # refresh environment variables, in case the environment is not up-to-date
-	
-	
+	assert x64_zip is not None, 'x64_zip should not be None by now... Something is wrong...'
+
 	print()
 	print('==== Starting installation ====')
 	print()
 	
 	# get install dir
-	install_dir = get_install_dir("c:\\MetaFFI\\")
-	
+	metaffi_home = os.environ.get('METAFFI_HOME')
+	if metaffi_home is None:
+		print('METAFFI_HOME environment variable is not set. Make sure METAFFI has been installed')
+		sys.exit(1)
+
+	# create metaffi_home/plugin_name dir
+	install_dir = os.path.join(metaffi_home, PLUGIN_NAME)
+	if not os.path.exists(install_dir):
+		os.makedirs(install_dir)
+
 	# unpack zip into install dir
-	unpack_into_directory(windows_x64_zip, install_dir)
+	unpack_into_directory(x64_zip, install_dir)
 	
-	# setting METAFFI_HOME environment variable
-	set_windows_system_environment_variable("METAFFI_HOME", install_dir)
+	# setup environment
+	setup_environment()
+
+
 	
-	# add install_dir and install_dir\bin to PATH
-	add_to_path_environment_variable(install_dir)
-	
-	return install_dir
 
 
 # -------------------------------
@@ -598,6 +462,35 @@ def set_ubuntu_environment_variable(file: str, name: str, value: str):
 	refresh_env()
 
 
+def set_ubuntu_user_environment_variable(name: str, value: str):
+	set_ubuntu_environment_variable('~/.profile', name, value)
+
+
+def set_ubuntu_machine_environment_variable(name: str, value: str):
+	set_ubuntu_system_environment_variable(name, value)
+
+
+def check_python_ubuntu_installed(version: str):
+	# split the version number into major, minor, and micro parts
+	major, minor = map(int, version.split("."))
+	
+	# construct the executable file name based on the version number
+	exe_name = f"python{major}.{minor}"
+	
+	# try to run the executable file using subprocess
+	exit_code, stdout, stderr = run_command(f'{exe_name} --version')
+	
+	if exit_code != 0 or not stdout.strip().startswith(f"Python {version}"):
+		reply = ask_user(f'Python {exe_name} is not installed, do you want me to install it for you?', 'y', ['y', 'n'])
+		if reply == 'n':
+			raise Exception(f"{exe_name} cannot be found. Please check your Python {version} is installed, and in PATH environment variable")
+		
+		# install python and python-dev (for the libraries to embed python in C)
+		exit_code, stdout, stderr = run_command(f'apt install {exe_name} {exe_name}-dev -y')
+		if exit_code != 0:
+			raise Exception(f'Failed to install {exe_name}. Output\n{stdout}{stderr}')
+
+
 def set_ubuntu_system_environment_variable(name: str, value: str):
 	# construct the file name for the environment file
 	env_file = "/etc/environment"
@@ -630,118 +523,22 @@ def set_ubuntu_system_environment_variable(name: str, value: str):
 
 
 def make_metaffi_available_globally(install_dir: str):
-	if not os.path.exists(f'{install_dir}/metaffi'):
-		# execute "ls -l {installdir}" and print the output
-
-		err_code, stdout, stderr = run_shell(f'ls -l {install_dir}')
-		if err_code != 0:
-			raise Exception(f'Failed to list the contents of {install_dir}: {stdout}{stderr}')
-		
-		print(stdout)
-
-		raise Exception(f'{install_dir}/metaffi is missing')
-	
-	res = os.system(f'chmod u+x {install_dir}/metaffi')
-	if res != 0:
-		raise Exception(f'Failed to make {install_dir}/metaffi executable. return value: {res}')
-
-	res = os.system(f'ln -s {install_dir}/metaffi /usr/bin/metaffi')
-	if res != 0:
-		raise Exception(f'Failed to create a symbolic link to /usr/bin/metaffi. return value: {res}')
-
-
-def install_ubuntu() -> str:
-	global ubuntu_x64_zip
-	
-	# verify running as admin
-	is_admin = os.getuid() == 0 # pyright: ignore
-	if not is_admin:
-		raise Exception('Installer must run as sudo')
-	
-	print()
-	print('==== Starting installation ====')
-	print()
-	
-	# get install dir
-	install_dir = get_install_dir("/usr/local/metaffi/")
-	
-	# unpack zip into install dir
-	unpack_into_directory(ubuntu_x64_zip, install_dir)
-	
-	make_metaffi_available_globally(install_dir)
-	
-	# setting METAFFI_HOME environment variable
-	set_ubuntu_system_environment_variable("METAFFI_HOME", install_dir)
-		
-	refresh_env()
-	
-	if 'METAFFI_HOME' not in os.environ:
-		raise Exception('METAFFI_HOME not in os.environ')
-	
-	return install_dir
+	run_command(f'chmod u+x {install_dir}/metaffi', True)
+	run_command(f'ln -s {install_dir}/metaffi /usr/bin/metaffi', True)
 
 
 # -------------------------------
 
 
-def set_installer_flags():
-	global is_silent
-	
-	for arg in sys.argv:
-		arg = arg.lower()
-		
-		if arg == '-h' or arg == '--help' or arg == '/?' or arg == '/h':
-			print('MetaFFI Installer')
-			print('-s - silent mode (using defaults)')
-			return False
-		
-		if arg == "/s" or arg == "-s":
-			is_silent = True
-		
-			
-	return True
-
-
-def main():
-	global run_api_tests_script
-	global uninstall_script
-
-	if not set_installer_flags():  # returns is continue running installer
-		return
-	
+def main():	
 	try:
-		install_dir = None
-		if platform.system() == 'Windows':
-			install_dir = install_windows()
-		elif platform.system() == 'Linux':
-			import distro # pyright: ignore
-			if distro.name() == 'Ubuntu':
-				install_dir = install_ubuntu()
-			else:
-				print("Currently, MetaFFI doesn't support {} distribution".format(distro.name()), file=sys.stderr)
-				exit(1)
-		else:
-			print("Currently, MetaFFI doesn't support {}".format(platform.system()), file=sys.stderr)
-			exit(1)
-
-		if install_dir is None:
-			print('Installation Directory is empty?! Something went wrong', file=sys.stderr)
-			exit(3)
-
-		# write "run_api_tests_script" script to install directory\run_api_tests.py
-		with open(os.path.join(install_dir, 'run_api_tests.py'), 'w') as f:
-			f.write(run_api_tests_script)
-
-		# write "uninstaller" script
-		with open(os.path.join(install_dir, 'uninstall.py'), 'w') as f:
-			f.write(uninstall_script)
-
+		install()
 	except Exception as exp:
 		traceback.print_exc()
 		exit(2)
 	
-	print('\nInstallation Complete!\nNotice you might need to logout/login or reboot to apply the environment variables changes\n')
-
+	print('\nInstallation Complete!\nNotice you might need to logout/login or reboot to apply environmental changes\n')
+	print('You can run tests by executing the "run_api_tests.py" script at the MetaFFI installation directory\n')
 
 if __name__ == '__main__':
 	main()
