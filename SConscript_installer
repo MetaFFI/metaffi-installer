@@ -78,6 +78,13 @@ env_pyplugin['PLUGIN_INSTALLER_DEV_PATH'] = env_pyplugin.Dir("#").Dir("lang-plug
 env_pyplugin['PLUGIN_INSTALLER_PLUGIN_NAME'] = 'python311'
 python311_installer_cmd = env_pyplugin.Command(target='build_python311_plugin_installer', source=[], action=build_plugin_installer)
 
+# Python3.12
+env_pyplugin = env.Clone()
+env_pyplugin['PLUGIN_INSTALLER_DEV_PATH'] = env_pyplugin.Dir("#").Dir("lang-plugin-python312").abspath
+env_pyplugin['PLUGIN_INSTALLER_PLUGIN_NAME'] = 'python312'
+python312_installer_cmd = env_pyplugin.Command(target='build_python312_plugin_installer', source=[], action=build_plugin_installer)
+
+
 # OpenJDK
 env_jdkplugin = env.Clone()
 env_jdkplugin['PLUGIN_INSTALLER_DEV_PATH'] = env_jdkplugin.Dir("#").Dir("lang-plugin-openjdk").abspath
@@ -96,15 +103,16 @@ def move_installer_to_containers_dir(target, source, env):
 	
 	shutil.move(f"{rootdir}/metaffi-installer/metaffi_installer.py", f'{rootdir}/containers/metaffi_installer.py', copy_function=shutil.copy2)
 	shutil.move(f"{rootdir}/metaffi-installer/metaffi_plugin_python311_installer.py", f'{rootdir}/containers/metaffi_plugin_python311_installer.py', copy_function=shutil.copy2)
+	shutil.move(f"{rootdir}/metaffi-installer/metaffi_plugin_python312_installer.py", f'{rootdir}/containers/metaffi_plugin_python312_installer.py', copy_function=shutil.copy2)
 	shutil.move(f"{rootdir}/metaffi-installer/metaffi_plugin_openjdk_installer.py", f'{rootdir}/containers/metaffi_plugin_openjdk_installer.py', copy_function=shutil.copy2)
 	shutil.move(f"{rootdir}/metaffi-installer/metaffi_plugin_go_installer.py", f'{rootdir}/containers/metaffi_plugin_go_installer.py', copy_function=shutil.copy2)
 	shutil.copy2(f"{rootdir}/metaffi-installer/requirements.txt", f'{rootdir}/containers/requirements.txt')
 
 
 move_installers_cmd = env.Command(target='move_installers', source=[], action=move_installer_to_containers_dir)
-env.Depends(move_installers_cmd, [metaffi_installer_cmd, python311_installer_cmd, openjdk_installer_cmd, go_installer_cmd])
+env.Depends(move_installers_cmd, [metaffi_installer_cmd, python311_installer_cmd, python312_installer_cmd, openjdk_installer_cmd, go_installer_cmd])
 
 
 
 env.Depends(metaffi_installer_cmd, ALIAS_BUILD)
-env.Alias(ALIAS_BUILD_INSTALLER, [metaffi_installer_cmd, python311_installer_cmd, openjdk_installer_cmd, go_installer_cmd, move_installers_cmd])
+env.Alias(ALIAS_BUILD_INSTALLER, [metaffi_installer_cmd, python311_installer_cmd, python312_installer_cmd, openjdk_installer_cmd, go_installer_cmd, move_installers_cmd])
