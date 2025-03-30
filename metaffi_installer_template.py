@@ -95,85 +95,6 @@ for plugindir in os.listdir(metaffi_home):
 print('All tests passed')
 """
 
-uninstall_script = """
-# iterate over all the directories in $METAFFI_HOME (the plugins) but "include" directory
-# for each directory, check if the directory contains a "uninstall.sh" script
-# if it doesn't, print a warning message and force-delete the directory recursively
-# if it does, run "uninstall.sh" in the directory and then force-delete the directory recursively (if the directory still exists)
-
-# delete $METAFFI_HOME directory
-# remove METAFFI_HOME from the environment variables (make sure it is removed permanently)
-import importlib
-import sys
-import subprocess
-
-def ensure_package(package_name, pip_package_name=None):
-	try:
-		importlib.import_module(package_name)
-	except ImportError:
-		import subprocess
-		import sys
-		print(f"Installing {package_name}...")
-		
-		if pip_package_name is None:
-			pip_package_name = package_name
-			
-		subprocess.check_call([sys.executable, "-m", "pip", "install", pip_package_name])
-		
-		print(f"{package_name} installed successfully!")
-
-ensure_package("shutil")
-ensure_package("pycrosskit")
-
-import os
-import sys
-import subprocess
-import platform
-import shutil
-from pycrosskit.envariables import SysEnv
-
-metaffi_home = os.environ['METAFFI_HOME']
-if metaffi_home is None:
-	print('METAFFI_HOME is not set.')
-	print('if you try to uninstall MetaFFI, please remove the installation directory manually, and remove METAFFI_HOME from the environment variables')
-	print('for each plugin, you will need to run their corresponding uninstall script if such exists. If not, you will need to remove the plugin directory manually and revert their environmental changes')
-	sys.exit(1)
-
-metaffi_home = os.path.abspath(metaffi_home)
-for plugindir in os.listdir(metaffi_home):
-	if plugindir == 'include':
-		continue
-		
-	print(f'Uninstalling {plugindir}')
-
-	uninstall_script_path = os.path.join(metaffi_home, plugindir, 'uninstall_plugin.py')
-	if not os.path.isfile(uninstall_script_path):
-		shutil.rmtree(os.path.join(metaffi_home, plugindir), ignore_errors=True)
-		continue
-		
-	try:
-		subprocess.run([uninstall_script_path], check=True)
-
-		# if directory still exists, force-delete it
-		if os.path.exists(os.path.join(metaffi_home, plugindir)):
-			shutil.rmtree(os.path.join(metaffi_home, plugindir), ignore_errors=True)
-	except subprocess.CalledProcessError as e:
-		print(f'Error: {uninstall_script_path} failed with exit code {e.returncode}')
-		sys.exit(e.returncode)
-
-shutil.rmtree(metaffi_home, ignore_errors=True)
-SysEnv().unset('METAFFI_HOME')
-
-# if windows - remove METAFFI_HOME from the environment variables permanently
-# using powershell
-if platform.system() == 'Windows':
-	subprocess.run(['powershell', '[System.Environment]::SetEnvironmentVariable("METAFFI_HOME", $null, "Machine")'], check=True)
-
-print('Uninstallation completed successfully')
-
-
-"""
-
 # ====================================
 
 def ask_user(input_text: str, default: str, valid_answers: list | None) -> str:
@@ -599,34 +520,27 @@ def set_ubuntu_environment_variable(file: str, name: str, value: str):
 
 
 def set_ubuntu_system_environment_variable(name: str, value: str):
-	# construct the file name for the environment file
-	env_file = "/etc/environment"
-	
-	# read the existing lines from the environment file
-	with open(env_file, "r") as f:
-		lines = f.readlines()
-	
-	# check if the environment variable already exists in the environment file
-	for i, line in enumerate(lines):
-		if line.startswith(f"{name}="):
-			# get the current value of the environment variable
-			current_value = line.split("=")[1].strip()
-			if current_value == value:
-				# if the value is the same, do nothing
-				return
-			else:
-				# if the value is different, replace the line with the new value
-				lines[i] = f"{name}={value}\n"
-				break
-	else:
-		# if the environment variable does not exist, append a new line with the name and value
-		lines.append(f"{name}={value}\n")
-	
-	# write the modified lines back to the environment file
-	with open(env_file, "w") as f:
-		f.writelines(lines)
-	
-	refresh_env()
+	"""Set environment variable in /etc/environment and update current shell"""
+	try:
+		from dotenv import load_dotenv
+
+		# Read existing environment variables using python-dotenv
+		load_dotenv('/etc/environment')
+		
+		# Update the environment variable
+		os.environ[name] = value
+		
+		# Write back to /etc/environment
+		with open('/etc/environment', 'w') as f:
+			for key, val in os.environ.items():
+				if not key.startswith('_'):  # Skip internal variables
+					f.write(f'{key}={val}\n')
+		
+		refresh_env()
+		
+	except Exception as e:
+		print(f"Error setting environment variable: {e}")
+		raise
 
 
 def make_metaffi_available_globally(install_dir: str):
@@ -645,7 +559,8 @@ def make_metaffi_available_globally(install_dir: str):
 	if res != 0:
 		raise Exception(f'Failed to make {install_dir}/metaffi executable. return value: {res}')
 
-	res = os.system(f'ln -s {install_dir}/metaffi /usr/bin/metaffi')
+	# create a symbolic link to /usr/bin/metaffi
+	res = os.system(f'ln -sf {install_dir}/metaffi /usr/bin/metaffi')
 	if res != 0:
 		raise Exception(f'Failed to create a symbolic link to /usr/bin/metaffi. return value: {res}')
 
@@ -671,12 +586,13 @@ def install_ubuntu() -> str:
 	make_metaffi_available_globally(install_dir)
 	
 	# setting METAFFI_HOME environment variable
-	set_ubuntu_system_environment_variable("METAFFI_HOME", install_dir)
-		
-	refresh_env()
-	
-	if 'METAFFI_HOME' not in os.environ:
-		raise Exception('METAFFI_HOME not in os.environ')
+	# set_ubuntu_environment_variable("~/.profile", "METAFFI_HOME", install_dir)
+	os.system('sed -i "/export METAFFI_HOME=/d" ~/.profile')
+	os.system(f'echo "export METAFFI_HOME={install_dir}" >> ~/.profile')
+	os.environ['METAFFI_HOME'] = install_dir
+ 
+	# make uninstaller executable
+	os.system(f'chmod u+x {install_dir}/uninstall')
 	
 	return install_dir
 
@@ -704,7 +620,6 @@ def set_installer_flags():
 
 def main():
 	global run_api_tests_script
-	global uninstall_script
 
 	if not set_installer_flags():  # returns is continue running installer
 		return
@@ -731,16 +646,19 @@ def main():
 		# write "run_api_tests_script" script to install directory\run_api_tests.py
 		with open(os.path.join(install_dir, 'run_api_tests.py'), 'w') as f:
 			f.write(run_api_tests_script)
-
-		# write "uninstaller" script
-		with open(os.path.join(install_dir, 'uninstall.py'), 'w') as f:
-			f.write(uninstall_script)
-
+	
+  
 	except Exception as exp:
 		traceback.print_exc()
 		exit(2)
 	
-	print('\nInstallation Complete!\nNotice you might need to logout/login or reboot to apply the environment variables changes\n')
+	print('\nInstallation Complete!')
+	print('Notice you might need to logout/login or reboot to apply the')
+	print('environment variables changes (like METAFFI_HOME)')
+	
+	if platform.system() != 'Windows':
+		print('\nYou can set METAFFI_HOME now by running the following command:')
+		print(f'source ~/.profile')
 
 
 if __name__ == '__main__':

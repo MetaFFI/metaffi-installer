@@ -492,34 +492,31 @@ def check_python_ubuntu_installed(version: str):
 
 
 def set_ubuntu_system_environment_variable(name: str, value: str):
-	# construct the file name for the environment file
-	env_file = "/etc/environment"
-	
-	# read the existing lines from the environment file
-	with open(env_file, "r") as f:
-		lines = f.readlines()
-	
-	# check if the environment variable already exists in the environment file
-	for i, line in enumerate(lines):
-		if line.startswith(f"{name}="):
-			# get the current value of the environment variable
-			current_value = line.split("=")[1].strip()
-			if current_value == value:
-				# if the value is the same, do nothing
-				return
-			else:
-				# if the value is different, replace the line with the new value
-				lines[i] = f"{name}={value}\n"
-				break
-	else:
-		# if the environment variable does not exist, append a new line with the name and value
-		lines.append(f"{name}={value}\n")
-	
-	# write the modified lines back to the environment file
-	with open(env_file, "w") as f:
-		f.writelines(lines)
-	
-	refresh_env()
+	"""Set environment variable in /etc/environment using python-dotenv"""
+	try:
+		from dotenv import load_dotenv
+
+		# Read existing environment variables using python-dotenv
+		load_dotenv('/etc/environment')
+		
+		# Update the environment variable
+		os.environ[name] = value
+		
+		# Write back to /etc/environment
+		with open('/etc/environment', 'w') as f:
+			for key, val in os.environ.items():
+				if not key.startswith('_'):  # Skip internal variables
+					f.write(f'{key}={val}\n')
+		
+		# Source and export for current session
+		subprocess.run(['source', '/etc/environment'], shell=True, check=True)
+		subprocess.run(['export', f'{name}={value}'], shell=True, check=True)
+		
+		refresh_env()
+		
+	except Exception as e:
+		print(f"Error setting environment variable: {e}")
+		raise
 
 
 def make_metaffi_available_globally(install_dir: str):
