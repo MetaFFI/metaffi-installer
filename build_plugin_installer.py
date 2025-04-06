@@ -17,15 +17,28 @@ from colorama import Fore
 """
 Expected files in plugin directory:
 1. build_plugin_installer_helper.py:
-	- check_prerequisites()->bool function that checks if the prerequisites are met.
-	- print_prerequisites() function that prints the prerequisites.
-	- get_files(win_metaffi_home, ubuntu_metaffi_home)->Tuple[Dict[str, str], Dict[str, str]] function that returns a list of files to be installed for windows and ubuntu.
-	- setup_environment() function that sets up the environment for the plugin. Will be executed after the files are installed.
-	- (optional) post_copy_files() called after the files have been copied to the installer
+	- check_prerequisites()->bool - Called during install - checks if the prerequisites are met.
+	- print_prerequisites() - Called during install - prints the prerequisites.
+	- setup_environment() - Called during install - sets up the environment for the plugin.
+ 													Executed after the files are installed.
+	
+ 
+	- get_files(win_metaffi_home, ubuntu_metaffi_home)->Tuple[Dict[str, str], Dict[str, str]]
+							Called during installer build - returns a dict of files to be installed for windows and ubuntu.
+							First in tuple is for windows, second is for ubuntu.
+							Dict keys are the target file names using relative path to the installed plugin directory.
+							Dict values are full paths to the files during build.
+	- (optional) post_copy_files() - Called during installer build
+ 									 Called after copying the files returned by get_files() and packaging them
+ 	- get_version() - Called during installer build - returns the version of the plugin.
+	
 
 2. uninstall_plugin.py:
-	- Script with its own main, teardowns the environment and removes the files installed OUTSIDE the plugin directory.
-	- The plugin directory will be removed by MetaFFI uninstaller.
+	- Script MUST have a main
+ 	- Executed to uninstall the plugin, or called by the MetaFFI uninstaller.
+  	- The plugin directory will be removed by MetaFFI uninstaller.
+ 	
+  	- Use the script for any cleanup excluding deleteing the plugin directory.	
 """
 
 
@@ -70,9 +83,11 @@ def create_plugin_installer_file(generated_installer_name: str, plugin_name: str
 	source_code = re.sub(r"windows_x64_zip\s*=\s*.+", f"windows_x64_zip = {windows_zip_str}", source_code, count=1)
 	source_code = re.sub(r"ubuntu_x64_zip\s*=\s*.+", f"ubuntu_x64_zip = {ubuntu_zip_str}", source_code, count=1)
 	source_code = re.sub(r"PLUGIN_VERSION\s*=\s*.+", f"METAFFI_VERSION = '{version}'", source_code, count=1)
-	source_code = re.sub('def setup_environment\\(\\):\n\tpass\n', setup_environment_code, source_code, count=1)
-	source_code = re.sub('def check_prerequisites\\(\\) -> bool:\n\tpass\n', check_prerequisites_code, source_code, count=1)
-	source_code = re.sub('def print_prerequisites\\(\\):\n\tpass\n', print_prerequisites_code, source_code, count=1)
+	
+	# Use lambda functions for replacements to handle backslashes correctly
+	source_code = re.sub(r'def\s+setup_environment\s*\(\s*\)\s*:\s*\n\s*pass\s*\n', lambda m: setup_environment_code, source_code, count=1)
+	source_code = re.sub(r'def\s+check_prerequisites\s*\(\s*\)\s*->\s*bool\s*:\s*\n\s*pass\s*\n', lambda m: check_prerequisites_code, source_code, count=1)
+	source_code = re.sub(r'def\s+print_prerequisites\s*\(\s*\)\s*:\s*\n\s*pass\s*\n', lambda m: print_prerequisites_code, source_code, count=1)
 	source_code = re.sub(r'PLUGIN_NAME=""', f'PLUGIN_NAME="{plugin_name}"', source_code, count=1)
 	
 	# Open the source file in write mode
@@ -129,7 +144,8 @@ def extract_check_prerequisites_code(file_path) -> str | None:
 		return function_code_with_tabs
 	else:
 		return None
-	
+
+
 def extract_print_prerequisites_code(file_path) -> str | None:
 	"""
 	Reads a Python file and extracts the source code of the "print_prerequisites" function.
@@ -153,6 +169,72 @@ def extract_print_prerequisites_code(file_path) -> str | None:
 		return function_code_with_tabs
 	else:
 		return None
+
+
+def create_windows_exe(input_file_py, plugin_name, output_exec_name=None):
+	print("Creating Windows executable...")
+	subprocess.run(['pip', 'install', 'pyinstaller'], check=True)
+
+	
+	if output_exec_name is None:
+		output_exec_name = f'metaffi-plugin-installer-{METAFFI_VERSION}-{plugin_name}.exe'
+
+	if '.exe' not in output_exec_name.lower():
+		output_exec_name = f'{output_exec_name}.exe'
+ 
+	# Create the exe in the installers_output directory with console window
+	subprocess.run(['pyinstaller', '--onefile', '--console', '--name', output_exec_name, 
+				   '--distpath', './installers_output',
+				   input_file_py], check=True)
+	
+	# Cleanup PyInstaller artifacts
+	if os.path.exists('build'):
+		shutil.rmtree('build', ignore_errors=True)
+  
+	print(f'Created Windows executable: {os.path.abspath(f"./installers_output/{output_exec_name}")}"')
+	assert os.path.exists(f'{os.path.abspath(f"./installers_output/{output_exec_name}")}'), f'{os.path.abspath(f"./installers_output/{output_exec_name}")} not found.'
+  
+  
+def create_linux_executable(input_file_py, plugin_name, output_exec_name=None):
+	print("Creating Linux executable...")
+ 
+	if output_exec_name is None:
+		output_exec_name = f'metaffi-plugin-installer-{METAFFI_VERSION}-{plugin_name}'
+ 
+ 
+	if platform.system() == 'Windows':
+		# if input_file_py is a full path:
+  		# make sure the drive letter (and only drive letter)is lowercase, everything else remains the same
+		# remove drive letter colon :
+  		# add "/mnt"
+		# replace "\" with "/"	
+		if os.path.isabs(input_file_py):
+			input_file_py = input_file_py[0].lower() + input_file_py[1:]
+			input_file_py = input_file_py.replace(':', '').replace('\\', '/')
+			input_file_py = '/mnt/' + input_file_py
+ 
+	# Use WSL to run PyInstaller with all required imports
+	wsl_command = """
+	# Install PyInstaller and required packages
+	python3 -m pip install pyinstaller pycrosskit python-dotenv
+
+	# Create the executable with all required imports
+	pyinstaller --onefile --console --hidden-import pycrosskit --hidden-import pycrosskit.envariables --hidden-import python-dotenv --hidden-import dotenv --name {} --distpath ./installers_output {}
+	""".format(output_exec_name, input_file_py)
+	
+	if platform.system() == 'Windows':
+		subprocess.run(['wsl', '-e', 'bash', '-c', wsl_command], check=True)
+	else:
+		# Run the command directly with shell=True, just like in build_installer.py
+		subprocess.run(wsl_command, shell=True, check=True)
+  
+	# Cleanup PyInstaller artifacts
+	if os.path.exists('build'):
+		shutil.rmtree('build', ignore_errors=True)
+  
+	print(f'Created Ubuntu executable: {os.path.abspath(f"./installers_output/{output_exec_name}")}"')
+	assert os.path.exists(f'{os.path.abspath(f"./installers_output/{output_exec_name}")}'), f'{os.path.abspath(f"./installers_output/{output_exec_name}")} not found in ./installers_output'
+
 
 def main():
 
@@ -202,20 +284,26 @@ def main():
 		print('Error: print_prerequisites() function not found in build_plugin_installer_helper.py')
 		sys.exit(1)
 
+	if not hasattr(build_plugin_installer_helper, 'get_version') or not callable(build_plugin_installer_helper.get_version):
+		print('Error: get_version() function not found in build_plugin_installer_helper.py')
+		sys.exit(1)
+
 	if not hasattr(build_plugin_installer_helper, 'post_copy_files') or not callable(build_plugin_installer_helper.post_copy_files):
 		is_post_copy_files = False
 
 	print('Building installer for plugin: ', plugin_name)
 
-	SCONS_OUTPUT_WIN_METAFFI_HOME = os.getenv('SCONS_OUTPUT_WIN_METAFFI_HOME')
-	assert SCONS_OUTPUT_WIN_METAFFI_HOME is not None, 'SCONS_OUTPUT_WIN_METAFFI_HOME is not set'
-	assert SCONS_OUTPUT_WIN_METAFFI_HOME != '', 'SCONS_OUTPUT_WIN_METAFFI_HOME is empty'
+	METAFFI_WIN_HOME = os.getenv('METAFFI_WIN_HOME')
+	assert METAFFI_WIN_HOME is not None, 'METAFFI_WIN_HOME is not set'
+	assert METAFFI_WIN_HOME != '', 'METAFFI_WIN_HOME is empty'
 
-	SCONS_OUTPUT_UBUNTU_METAFFI_HOME = os.getenv('SCONS_OUTPUT_UBUNTU_METAFFI_HOME')
-	assert SCONS_OUTPUT_UBUNTU_METAFFI_HOME is not None, 'SCONS_OUTPUT_UBUNTU_METAFFI_HOME is not set'
-	assert SCONS_OUTPUT_UBUNTU_METAFFI_HOME != '', 'SCONS_OUTPUT_UBUNTU_METAFFI_HOME is empty'
+	METAFFI_UBUNTU_HOME = os.getenv('METAFFI_UBUNTU_HOME')
+	assert METAFFI_UBUNTU_HOME is not None, 'METAFFI_UBUNTU_HOME is not set'
+	assert METAFFI_UBUNTU_HOME != '', 'METAFFI_UBUNTU_HOME is empty'
 
-	windows_files, ubuntu_files = build_plugin_installer_helper.get_files(SCONS_OUTPUT_WIN_METAFFI_HOME, SCONS_OUTPUT_UBUNTU_METAFFI_HOME)
+	windows_files, ubuntu_files = build_plugin_installer_helper.get_files(METAFFI_WIN_HOME, METAFFI_UBUNTU_HOME)
+
+	version = build_plugin_installer_helper.get_version()
 
 	if is_post_copy_files:
 		build_plugin_installer_helper.post_copy_files()
@@ -223,10 +311,34 @@ def main():
 	# make sure that "uninstall_plugin.py" file exists in windows_files and ubuntu_files
 	# it could be the suffix of a string in windows_files or ubuntu_files, doesn't have to be a match
 	assert any('uninstall_plugin.py' in file for file in windows_files), f'uninstall_plugin.py not found in returned Windows plugin files: {windows_files}'
-	assert any('uninstall_plugin.py' in file for file in ubuntu_files), f'uninstall_plugin.py not found in Ubuntu plugin files: {ubuntu_files}'
+	assert any('uninstall_plugin.py' in file for file in ubuntu_files), f'uninstall_plugin.py not found in returned Ubuntu plugin files: {ubuntu_files}'
+
+	# make uninstall_plugin.py an executable for windows and ubuntu using pyinstaller
+	create_windows_exe(f'{plugin_dev_dir}/uninstall_plugin.py', plugin_name, 'uninstall_plugin.exe')
+	create_linux_executable(f'{plugin_dev_dir}/uninstall_plugin.py', plugin_name, 'uninstall_plugin')
+ 
+	# make sure uninstall_plugin.exe and uninstall_plugin exist in ./installers_output
+	assert os.path.exists('./installers_output/uninstall_plugin.exe'), 'uninstall_plugin.exe not found in ./installers_output'
+	assert os.path.exists('./installers_output/uninstall_plugin'), 'uninstall_plugin not found in ./installers_output'
+ 
+	# copy from installers_output to plugin_dev_dir
+	shutil.move(f'./installers_output/uninstall_plugin.exe', f'{plugin_dev_dir}/uninstall_plugin.exe')
+	shutil.move(f'./installers_output/uninstall_plugin', f'{plugin_dev_dir}/uninstall_plugin')
+ 
+	# replace the uninstall_plugin.py file with the executable as full path
+	# replace the uninstall_plugin.py file with the executable as
+	del windows_files['uninstall_plugin.py']
+	windows_files['uninstall_plugin.exe'] = f'{plugin_dev_dir}/uninstall_plugin.exe'
+
+	del ubuntu_files['uninstall_plugin.py']
+	ubuntu_files['uninstall_plugin'] = f'{plugin_dev_dir}/uninstall_plugin'
 
 	windows_zipped_files = zip_installer_files(windows_files, plugin_dev_dir)
 	ubuntu_zipped_files = zip_installer_files(ubuntu_files, plugin_dev_dir)
+ 
+	# remove the executables from the plugin_dev_dir after zipping
+	os.remove(f'{plugin_dev_dir}/uninstall_plugin.exe')
+	os.remove(f'{plugin_dev_dir}/uninstall_plugin')
 
 	# extract the setup_environment function from the build_plugin_installer_helper.py file
 	setup_environment_code = extract_setup_environment_code(f'{plugin_dev_dir}/build_plugin_installer_helper.py')
@@ -246,8 +358,33 @@ def main():
 		print('Error: Failed to extract print_prerequisites()')
 		sys.exit(1)
 	
-	create_plugin_installer_file(f'metaffi_plugin_{plugin_name}_installer.py', plugin_name, windows_zipped_files, ubuntu_zipped_files, setup_environment_code, check_prerequisites_code, print_prerequisites_code)
+	create_plugin_installer_file(f'./installers_output/metaffi_plugin_{plugin_name}_{version}_installer.py', plugin_name, windows_zipped_files, ubuntu_zipped_files, setup_environment_code, check_prerequisites_code, print_prerequisites_code)
 	
+	# use pyinstaller to create the windows and ubuntu installers
+	# place it in the installers_output directory
+	# (call relevant functions to do that)
+	create_windows_exe(f'./installers_output/metaffi_plugin_{plugin_name}_{version}_installer.py', plugin_name)
+	create_linux_executable(f'./installers_output/metaffi_plugin_{plugin_name}_{version}_installer.py', plugin_name)
+	
+	# remove the metaffi_plugin_{plugin_name}_{version}_installer.py file
+	os.remove(f'./installers_output/metaffi_plugin_{plugin_name}_{version}_installer.py')
+	
+	# cleanup *.spec files in the current directory
+	for file in os.listdir('.'):
+		if file.endswith('.spec'):
+			os.remove(file)
+ 
+	print('Done')
+	
+ 
 	
 if __name__ == '__main__':
+	
+	# make sure the installers_output directory exists
+	if not os.path.exists('./installers_output'):
+		os.makedirs('./installers_output')
+		
+	# set the current directory to this script's directory
+	os.chdir(os.path.dirname(os.path.abspath(__file__)))
+ 
 	main()

@@ -360,11 +360,6 @@ def install():
 	x64_zip = None
 	
 	if is_windows():
-		# verify running as admin
-		is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
-		if not is_admin:
-			raise Exception('User must have admin privileges')
-		
 		refresh_windows_env()  # refresh environment variables, in case the environment is not up-to-date
 
 		x64_zip = windows_x64_zip
@@ -393,16 +388,51 @@ def install():
 		sys.exit(1)
 
 	# create metaffi_home/plugin_name dir
+	print('Creating plugin directory...')
 	install_dir = os.path.join(metaffi_home, PLUGIN_NAME)
 	if not os.path.exists(install_dir):
 		os.makedirs(install_dir)
 
 	# unpack zip into install dir
+	print('Unpacking zip into plugin directory...')
 	unpack_into_directory(x64_zip, install_dir)
 	
 	# setup environment
+	print('Setting up environment...')
 	setup_environment()
+ 
+	# if ubuntu, make uninstall as executable
+	print('Making uninstall executable and script...')
+	if is_ubuntu():
+		os.chmod(os.path.join(install_dir, 'uninstall_plugin'), 0o755)
+  
+  
+	# create uninstall script for windows or linux that copies uninstall executable to temp directory and executes it
+	if is_windows():
+		uninstall_script_content = f"""@echo off
+set TEMP_DIR=%TEMP%\\metaffi_uninstall_%RANDOM%
+mkdir "%TEMP_DIR%"
+copy "{install_dir}\\uninstall_plugin.exe" "%TEMP_DIR%\\uninstall_plugin.exe"
+"%TEMP_DIR%\\uninstall_plugin.exe"
+rmdir /S /Q "%TEMP_DIR%"
+"""
+		with open(f'{install_dir}/uninstall.bat', 'w') as f:
+			f.write(uninstall_script_content)
+	else:
+		uninstall_script_content = f"""#!/bin/bash
+TEMP_DIR=$(mktemp -d)
+cp "{install_dir}/uninstall_plugin" "$TEMP_DIR/uninstall_plugin"
+chmod +x "$TEMP_DIR/uninstall_plugin"
+"$TEMP_DIR/uninstall_plugin"
+rm -rf "$TEMP_DIR"
+"""
+		with open(f'{install_dir}/uninstall.sh', 'w') as f:
+			f.write(uninstall_script_content)
+   
+		os.chmod(f'{install_dir}/uninstall.sh', 0o755)
 
+
+	return install_dir
 
 	
 
@@ -532,13 +562,15 @@ def make_metaffi_available_globally(install_dir: str):
 
 def main():	
 	try:
-		install()
+		install_dir = install()
 	except Exception as exp:
 		traceback.print_exc()
 		exit(2)
 	
 	print('\nInstallation Complete!\nNotice you might need to logout/login or reboot to apply environmental changes\n')
-	print('You can run tests by executing the "run_api_tests.py" script at the MetaFFI installation directory\n')
+ 
+	print(f'To uninstall the plugin, run the "uninstall_plugin" at the plugin installation directory: {install_dir}\n')
+	#print('You can run tests by executing the "run_api_tests.py" script at the MetaFFI installation directory\n')
 
 if __name__ == '__main__':
 	main()

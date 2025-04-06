@@ -1,2 +1,0 @@
-pycrosskit
-python-dotenv
