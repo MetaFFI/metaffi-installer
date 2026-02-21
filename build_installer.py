@@ -137,20 +137,28 @@ def create_uninstaller_elf():
 def get_windows_metaffi_files(metaffi_win_home: str):
 	files = []
 	system32 = os.environ["SystemRoot"] + "/system32/"
-	files.extend(
-		[
-			"xllr.dll",
-			"metaffi.exe",
-			"uninstall.exe",
-			(f"{system32}msvcp140.dll", "msvcp140.dll"),
-			(f"{system32}vcruntime140_1d.dll", "vcruntime140_1d.dll"),
-			(f"{system32}vcruntime140d.dll", "vcruntime140d.dll"),
-			"boost_filesystem*.dll",
-			"boost_program_options*.dll",
-			(f"{system32}msvcp140d.dll", "msvcp140d.dll"),
-			(f"{system32}ucrtbased.dll", "ucrtbased.dll"),
-		]
-	)
+	files.extend(["xllr.dll", "metaffi.exe", "uninstall.exe", "boost_filesystem*.dll", "boost_program_options*.dll"])
+
+	required_runtime = [
+		(f"{system32}msvcp140.dll", "msvcp140.dll"),
+	]
+	optional_runtime = [
+		(f"{system32}vcruntime140_1d.dll", "vcruntime140_1d.dll"),
+		(f"{system32}vcruntime140d.dll", "vcruntime140d.dll"),
+		(f"{system32}msvcp140d.dll", "msvcp140d.dll"),
+		(f"{system32}ucrtbased.dll", "ucrtbased.dll"),
+	]
+
+	for src, dst in required_runtime:
+		if not os.path.isfile(src):
+			raise FileNotFoundError(f"Required runtime file not found: {src}")
+		files.append((src, dst))
+
+	for src, dst in optional_runtime:
+		if os.path.isfile(src):
+			files.append((src, dst))
+		else:
+			print(f"Warning: optional runtime file not found, skipping: {src}")
 
 	includes = glob.glob(f"{metaffi_win_home}/include/*")
 	includes = ["include/" + os.path.basename(incfile) for incfile in includes]

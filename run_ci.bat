@@ -6,6 +6,7 @@ set "REPO=MetaFFI/metaffi-installer"
 set "VERSION="
 set "BUILD_TYPE="
 set "PUBLISH="
+set "METAFFI_ROOT_REF="
 
 if "%~1"=="" goto after_parse
 
@@ -54,6 +55,17 @@ if /I "%~1"=="--repo" (
 		exit /b 1
 	)
 	set "REPO=%~2"
+	shift
+	shift
+	goto parse_args
+)
+
+if /I "%~1"=="--metaffi-root-ref" (
+	if "%~2"=="" (
+		echo Missing value for --metaffi-root-ref
+		exit /b 1
+	)
+	set "METAFFI_ROOT_REF=%~2"
 	shift
 	shift
 	goto parse_args
@@ -112,6 +124,15 @@ set /p PUBLISH=Invalid publish value. Allowed: true ^| false ^(or yes/no, 1/0^).
 goto normalize_publish
 
 :publish_ok
+if "%METAFFI_ROOT_REF%"=="" (
+	set /p METAFFI_ROOT_REF=Missing --metaffi-root-ref. Example: main ^(or v0.3.1^). Enter metaffi-root ref: 
+)
+:ask_ref_again
+if "%METAFFI_ROOT_REF%"=="" (
+	set /p METAFFI_ROOT_REF=metaffi-root ref cannot be empty. Example: main. Enter metaffi-root ref: 
+	goto ask_ref_again
+)
+
 where gh >nul 2>nul
 if errorlevel 1 (
 	echo GitHub CLI ^('gh'^) not found in PATH.
@@ -130,8 +151,9 @@ echo   workflow: %WORKFLOW%
 echo   version: %VERSION%
 echo   build_type: %BUILD_TYPE%
 echo   publish: %PUBLISH%
+echo   metaffi_root_ref: %METAFFI_ROOT_REF%
 
-gh workflow run "%WORKFLOW%" -R "%REPO%" -f "version=%VERSION%" -f "build_type=%BUILD_TYPE%" -f "publish=%PUBLISH%"
+gh workflow run "%WORKFLOW%" -R "%REPO%" -f "version=%VERSION%" -f "build_type=%BUILD_TYPE%" -f "publish=%PUBLISH%" -f "metaffi_root_ref=%METAFFI_ROOT_REF%"
 if errorlevel 1 exit /b 1
 
 echo Workflow dispatch submitted.
@@ -147,13 +169,14 @@ echo Options:
 echo   --version ^<value^>       Installer version ^(example: 0.3.1^)
 echo   --build-type ^<value^>    CMake build type: Debug ^| Release ^| RelWithDebInfo
 echo   --publish ^<value^>       Publish release assets: true ^| false
+echo   --metaffi-root-ref ^<v^>  metaffi-root ref ^(branch/tag/sha^). Example: main
 echo   --repo ^<value^>          GitHub repo in owner/name form ^(default: MetaFFI/metaffi-installer^)
 echo   --workflow ^<value^>      Workflow file/name ^(default: manual-build-installers.yml^)
 echo   -h, --help                Show this help
 echo.
 echo Examples:
-echo   run_ci.bat --version 0.3.1 --build-type Release --publish false
-echo   run_ci.bat --version 0.3.1 --build-type RelWithDebInfo --publish true --repo MetaFFI/metaffi-installer
+echo   run_ci.bat --version 0.3.1 --build-type Release --publish false --metaffi-root-ref main
+echo   run_ci.bat --version 0.3.1 --build-type RelWithDebInfo --publish true --metaffi-root-ref v0.3.1 --repo MetaFFI/metaffi-installer
 exit /b 0
 
 :show_help_error

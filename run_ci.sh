@@ -6,6 +6,7 @@ REPO="MetaFFI/metaffi-installer"
 VERSION=""
 BUILD_TYPE=""
 PUBLISH=""
+METAFFI_ROOT_REF=""
 
 print_help() {
 	cat <<'EOF'
@@ -18,13 +19,14 @@ Options:
   --version <value>       Installer version (example: 0.3.1)
   --build-type <value>    CMake build type: Debug | Release | RelWithDebInfo
   --publish <value>       Publish release assets: true | false
+  --metaffi-root-ref <v>  metaffi-root ref (branch/tag/sha). Example: main
   --repo <value>          GitHub repo in owner/name form (default: MetaFFI/metaffi-installer)
   --workflow <value>      Workflow file/name (default: manual-build-installers.yml)
   -h, --help              Show this help
 
 Examples:
-  ./run_ci.sh --version 0.3.1 --build-type Release --publish false
-  ./run_ci.sh --version 0.3.1 --build-type RelWithDebInfo --publish true --repo MetaFFI/metaffi-installer
+  ./run_ci.sh --version 0.3.1 --build-type Release --publish false --metaffi-root-ref main
+  ./run_ci.sh --version 0.3.1 --build-type RelWithDebInfo --publish true --metaffi-root-ref v0.3.1 --repo MetaFFI/metaffi-installer
 EOF
 }
 
@@ -68,6 +70,11 @@ while [[ $# -gt 0 ]]; do
 			REPO="$2"
 			shift 2
 			;;
+		--metaffi-root-ref)
+			[[ $# -ge 2 ]] || { echo "Missing value for --metaffi-root-ref"; exit 1; }
+			METAFFI_ROOT_REF="$2"
+			shift 2
+			;;
 		--workflow)
 			[[ $# -ge 2 ]] || { echo "Missing value for --workflow"; exit 1; }
 			WORKFLOW="$2"
@@ -106,6 +113,13 @@ while ! PUBLISH="$(normalize_publish "${PUBLISH}")"; do
 	read -r -p "Invalid publish value. Allowed: true | false (or yes/no, 1/0). Enter publish flag: " PUBLISH
 done
 
+if [[ -z "${METAFFI_ROOT_REF}" ]]; then
+	read -r -p "Missing --metaffi-root-ref. Example: main (or v0.3.1). Enter metaffi-root ref: " METAFFI_ROOT_REF
+fi
+while [[ -z "${METAFFI_ROOT_REF}" ]]; do
+	read -r -p "metaffi-root ref cannot be empty. Example: main. Enter metaffi-root ref: " METAFFI_ROOT_REF
+done
+
 if ! command -v gh >/dev/null 2>&1; then
 	echo "GitHub CLI ('gh') not found in PATH."
 	exit 1
@@ -122,11 +136,13 @@ echo "  workflow: ${WORKFLOW}"
 echo "  version: ${VERSION}"
 echo "  build_type: ${BUILD_TYPE}"
 echo "  publish: ${PUBLISH}"
+echo "  metaffi_root_ref: ${METAFFI_ROOT_REF}"
 
 gh workflow run "${WORKFLOW}" \
 	-R "${REPO}" \
 	-f "version=${VERSION}" \
 	-f "build_type=${BUILD_TYPE}" \
-	-f "publish=${PUBLISH}"
+	-f "publish=${PUBLISH}" \
+	-f "metaffi_root_ref=${METAFFI_ROOT_REF}"
 
 echo "Workflow dispatch submitted."
