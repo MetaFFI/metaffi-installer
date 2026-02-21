@@ -82,7 +82,7 @@ def create_plugin_installer_file(generated_installer_name: str, plugin_name: str
 	# Find and replace the variables with the encoded strings
 	source_code = re.sub(r"windows_x64_zip\s*=\s*.+", f"windows_x64_zip = {windows_zip_str}", source_code, count=1)
 	source_code = re.sub(r"ubuntu_x64_zip\s*=\s*.+", f"ubuntu_x64_zip = {ubuntu_zip_str}", source_code, count=1)
-	source_code = re.sub(r"PLUGIN_VERSION\s*=\s*.+", f"METAFFI_VERSION = '{version}'", source_code, count=1)
+	source_code = re.sub(r"PLUGIN_VERSION\s*=\s*.+", f"PLUGIN_VERSION = '{version}'", source_code, count=1)
 	
 	# Use lambda functions for replacements to handle backslashes correctly
 	source_code = re.sub(r'def\s+setup_environment\s*\(\s*\)\s*:\s*\n\s*pass\s*\n', lambda m: setup_environment_code, source_code, count=1)

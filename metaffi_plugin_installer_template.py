@@ -1,5 +1,6 @@
 import base64
 import io
+import argparse
 import platform
 import re
 import shlex
@@ -18,6 +19,7 @@ windows_x64_zip = 'windows_x64_zip_data'
 ubuntu_x64_zip = 'ubuntu_x64_zip_data'
 PLUGIN_VERSION = '0.0.0'
 PLUGIN_NAME=""
+is_silent = False
 
 def setup_environment():
 	pass
@@ -46,6 +48,12 @@ def install_pip_package(package_name: str):
 
 
 def ask_user(input_text: str, default: str, valid_answers: list | None) -> str:
+	global is_silent
+
+	if is_silent:
+		if default is None or default == '':
+			raise Exception(f"internal error - missing default value in silent mode.\n{input_text}\n{valid_answers}")
+		return default
 	
 	done = False
 	
@@ -440,6 +448,69 @@ rm -rf "$TEMP_DIR"
 # -------------------------------
 
 
+def run_subprocess(command: list[str], description: str):
+	print(f'Executing ({description}): {" ".join(command)}')
+	subprocess.run(command, check=True)
+
+
+def uninstall() -> str:
+	metaffi_home = os.environ.get('METAFFI_HOME')
+	if metaffi_home is None or metaffi_home == '':
+		raise Exception('METAFFI_HOME environment variable is not set. Cannot uninstall plugin.')
+
+	install_dir = os.path.join(metaffi_home, PLUGIN_NAME)
+	if not os.path.isdir(install_dir):
+		raise Exception(f'Plugin installation directory does not exist: {install_dir}')
+
+	if is_windows():
+		candidates = [
+			(os.path.join(install_dir, 'uninstall_plugin.exe'), 'exe'),
+			(os.path.join(install_dir, 'uninstall.bat'), 'script'),
+			(os.path.join(install_dir, 'uninstall_plugin.py'), 'python'),
+			(os.path.join(install_dir, 'uninstall.py'), 'python'),
+		]
+	else:
+		candidates = [
+			(os.path.join(install_dir, 'uninstall_plugin'), 'exe'),
+			(os.path.join(install_dir, 'uninstall.sh'), 'script'),
+			(os.path.join(install_dir, 'uninstall_plugin.py'), 'python'),
+			(os.path.join(install_dir, 'uninstall.py'), 'python'),
+		]
+
+	executed = False
+	for candidate, ctype in candidates:
+		if not os.path.isfile(candidate):
+			continue
+
+		executed = True
+		if ctype == 'exe':
+			run_subprocess([candidate], 'plugin executable uninstaller')
+		elif ctype == 'script':
+			if is_windows():
+				run_subprocess(['cmd', '/c', candidate], 'plugin script uninstaller')
+			else:
+				run_subprocess(['bash', candidate], 'plugin script uninstaller')
+		elif ctype == 'python':
+			print('WARNING: Falling back to legacy Python plugin uninstaller.')
+			run_subprocess([sys.executable, candidate], 'legacy python uninstaller')
+
+		break
+
+	if not executed:
+		raise Exception(
+			f'No uninstaller found in {install_dir}. Expected one of: '
+			f'uninstall_plugin(.exe), uninstall.(bat|sh), uninstall_plugin.py, uninstall.py'
+		)
+
+	if os.path.isdir(install_dir):
+		shutil.rmtree(install_dir, ignore_errors=True)
+
+	return install_dir
+
+
+# -------------------------------
+
+
 def get_ubuntu_environment_variable(file: str, name: str) -> str | None:
 	# Execute the command and capture the output
 	err_code, stdout, stderr = run_shell(f"grep -q '{name}=' {file}")
@@ -560,17 +631,76 @@ def make_metaffi_available_globally(install_dir: str):
 # -------------------------------
 
 
-def main():	
+def parse_action_and_flags():
+	parser = argparse.ArgumentParser(description=f'MetaFFI Plugin Installer ({PLUGIN_NAME})')
+	parser.add_argument('legacy_action', nargs='?', choices=['install', 'uninstall', 'check-prerequisites', 'print-prerequisites'])
+	parser.add_argument('-c', '--check-prerequisites', action='store_true', help='Check plugin prerequisites only')
+	parser.add_argument('-p', '--print-prerequisites', action='store_true', help='Print prerequisites only')
+	parser.add_argument('-i', '--install', action='store_true', help='Install plugin')
+	parser.add_argument('-u', '--uninstall', action='store_true', help='Uninstall plugin')
+	parser.add_argument('-s', '--silent', action='store_true', help='Silent mode')
+	args = parser.parse_args()
+
+	flag_actions = []
+	if args.check_prerequisites:
+		flag_actions.append('check-prerequisites')
+	if args.print_prerequisites:
+		flag_actions.append('print-prerequisites')
+	if args.install:
+		flag_actions.append('install')
+	if args.uninstall:
+		flag_actions.append('uninstall')
+
+	if len(flag_actions) > 1:
+		raise Exception(f'Choose only one action flag. Got: {flag_actions}')
+
+	action = flag_actions[0] if len(flag_actions) == 1 else None
+
+	if args.legacy_action is not None:
+		if action is not None and action != args.legacy_action:
+			raise Exception(f'Conflicting actions: positional={args.legacy_action} flag={action}')
+		action = args.legacy_action
+
+	if action is None:
+		# Backward-compatible default behavior
+		action = 'install'
+
+	return action, args.silent
+
+
+def main():
+	global is_silent
+
 	try:
-		install_dir = install()
-	except Exception as exp:
+		action, is_silent = parse_action_and_flags()
+
+		if action == 'check-prerequisites':
+			if check_prerequisites():
+				print('Prerequisites check passed')
+				exit(0)
+			print('Prerequisites check failed')
+			print_prerequisites()
+			exit(1)
+
+		if action == 'print-prerequisites':
+			print_prerequisites()
+			exit(0)
+
+		if action == 'install':
+			install_dir = install()
+			print('\nInstallation Complete!\nNotice you might need to logout/login or reboot to apply environmental changes\n')
+			print(f'To uninstall the plugin, run the "uninstall_plugin" at the plugin installation directory: {install_dir}\n')
+			exit(0)
+
+		if action == 'uninstall':
+			uninstalled_dir = uninstall()
+			print(f'Plugin uninstalled successfully from: {uninstalled_dir}')
+			exit(0)
+
+		raise Exception(f'Unsupported action: {action}')
+	except Exception:
 		traceback.print_exc()
 		exit(2)
-	
-	print('\nInstallation Complete!\nNotice you might need to logout/login or reboot to apply environmental changes\n')
- 
-	print(f'To uninstall the plugin, run the "uninstall_plugin" at the plugin installation directory: {install_dir}\n')
-	#print('You can run tests by executing the "run_api_tests.py" script at the MetaFFI installation directory\n')
 
 if __name__ == '__main__':
 	main()
