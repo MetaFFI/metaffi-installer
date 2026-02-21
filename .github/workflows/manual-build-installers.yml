@@ -38,6 +38,16 @@ jobs:
       - name: Checkout metaffi-installer
         uses: actions/checkout@v4
 
+      - name: Restore Windows vcpkg cache artifact
+        uses: dawidd6/action-download-artifact@v9
+        with:
+          workflow: manual-build-installers.yml
+          branch: main
+          name: vcpkg-cache-windows
+          path: vcpkg-cache
+          search_artifacts: true
+          if_no_artifact_found: warn
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -64,6 +74,22 @@ jobs:
           git clone https://github.com/microsoft/vcpkg.git $desiredVcpkgRoot
           & "$desiredVcpkgRoot\bootstrap-vcpkg.bat"
           & "$desiredVcpkgRoot\vcpkg.exe" version
+
+          $cacheRoot = "$env:GITHUB_WORKSPACE\vcpkg-cache"
+          if(Test-Path "$cacheRoot\installed"){
+            Write-Host "Restoring cached vcpkg installed tree..."
+            New-Item -ItemType Directory -Path "$desiredVcpkgRoot\installed" -Force | Out-Null
+            Copy-Item -Path "$cacheRoot\installed\*" -Destination "$desiredVcpkgRoot\installed" -Recurse -Force
+          }
+          if(Test-Path "$cacheRoot\downloads"){
+            Write-Host "Restoring cached vcpkg downloads tree..."
+            New-Item -ItemType Directory -Path "$desiredVcpkgRoot\downloads" -Force | Out-Null
+            Copy-Item -Path "$cacheRoot\downloads\*" -Destination "$desiredVcpkgRoot\downloads" -Recurse -Force
+          }
+          if(Test-Path "$cacheRoot\vcpkg-packages.txt"){
+            Copy-Item -Path "$cacheRoot\vcpkg-packages.txt" -Destination "$env:GITHUB_WORKSPACE\vcpkg-prev-packages.txt" -Force
+          }
+
           # Force consistent vcpkg root to avoid VS runner default mismatch warnings.
           $env:VCPKG_ROOT = $desiredVcpkgRoot
           "VCPKG_ROOT=$desiredVcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -83,6 +109,53 @@ jobs:
           $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
           $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
           cmake -S "$env:GITHUB_WORKSPACE\metaffi-root" -B "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}" -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" -DVCPKG_ROOT="C:\vcpkg"
+
+      - name: Capture Windows vcpkg package list
+        if: success()
+        shell: pwsh
+        run: |
+          & "C:\vcpkg\vcpkg.exe" list | Sort-Object | Out-File -FilePath "$env:GITHUB_WORKSPACE\vcpkg-current-packages.txt" -Encoding utf8
+
+      - name: Compare Windows vcpkg package list
+        if: success()
+        shell: pwsh
+        run: |
+          $prev = "$env:GITHUB_WORKSPACE\vcpkg-prev-packages.txt"
+          $curr = "$env:GITHUB_WORKSPACE\vcpkg-current-packages.txt"
+          $unchanged = $true
+          if(Test-Path $prev){
+            $unchanged = ((Get-Content $prev -Raw) -eq (Get-Content $curr -Raw))
+          }
+          "VCPKG_WINDOWS_CACHE_UNCHANGED=$($unchanged.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          if(-not $unchanged){
+            Write-Warning "vcpkg package list changed; skipping cache upload."
+          }
+
+      - name: Prepare Windows vcpkg cache artifact
+        if: success() && env.VCPKG_WINDOWS_CACHE_UNCHANGED == 'true'
+        shell: pwsh
+        run: |
+          $outputDir = "$env:GITHUB_WORKSPACE\vcpkg-cache-upload"
+          if(Test-Path $outputDir){
+            Remove-Item -Path $outputDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path "$outputDir\installed" -Force | Out-Null
+          New-Item -ItemType Directory -Path "$outputDir\downloads" -Force | Out-Null
+          if(Test-Path "C:\vcpkg\installed"){
+            Copy-Item -Path "C:\vcpkg\installed\*" -Destination "$outputDir\installed" -Recurse -Force
+          }
+          if(Test-Path "C:\vcpkg\downloads"){
+            Copy-Item -Path "C:\vcpkg\downloads\*" -Destination "$outputDir\downloads" -Recurse -Force
+          }
+          Copy-Item -Path "$env:GITHUB_WORKSPACE\vcpkg-current-packages.txt" -Destination "$outputDir\vcpkg-packages.txt" -Force
+
+      - name: Upload Windows vcpkg cache artifact
+        if: success() && env.VCPKG_WINDOWS_CACHE_UNCHANGED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcpkg-cache-windows
+          path: vcpkg-cache-upload
+          if-no-files-found: error
 
       - name: Build MetaFFI
         shell: pwsh
@@ -112,6 +185,16 @@ jobs:
       - name: Checkout metaffi-installer
         uses: actions/checkout@v4
 
+      - name: Restore Ubuntu vcpkg cache artifact
+        uses: dawidd6/action-download-artifact@v9
+        with:
+          workflow: manual-build-installers.yml
+          branch: main
+          name: vcpkg-cache-ubuntu
+          path: vcpkg-cache
+          search_artifacts: true
+          if_no_artifact_found: warn
+
       - name: Install base dependencies
         run: |
           sudo apt-get update
@@ -137,6 +220,19 @@ jobs:
         run: |
           git clone https://github.com/microsoft/vcpkg.git "$GITHUB_WORKSPACE/vcpkg"
           "$GITHUB_WORKSPACE/vcpkg/bootstrap-vcpkg.sh"
+          if [ -d "$GITHUB_WORKSPACE/vcpkg-cache/installed" ]; then
+            echo "Restoring cached vcpkg installed tree..."
+            mkdir -p "$GITHUB_WORKSPACE/vcpkg/installed"
+            cp -a "$GITHUB_WORKSPACE/vcpkg-cache/installed/." "$GITHUB_WORKSPACE/vcpkg/installed/"
+          fi
+          if [ -d "$GITHUB_WORKSPACE/vcpkg-cache/downloads" ]; then
+            echo "Restoring cached vcpkg downloads tree..."
+            mkdir -p "$GITHUB_WORKSPACE/vcpkg/downloads"
+            cp -a "$GITHUB_WORKSPACE/vcpkg-cache/downloads/." "$GITHUB_WORKSPACE/vcpkg/downloads/"
+          fi
+          if [ -f "$GITHUB_WORKSPACE/vcpkg-cache/vcpkg-packages.txt" ]; then
+            cp "$GITHUB_WORKSPACE/vcpkg-cache/vcpkg-packages.txt" "$GITHUB_WORKSPACE/vcpkg-prev-packages.txt"
+          fi
           echo "VCPKG_ROOT=$GITHUB_WORKSPACE/vcpkg" >> "$GITHUB_ENV"
           echo "$GITHUB_WORKSPACE/vcpkg" >> "$GITHUB_PATH"
 
@@ -151,6 +247,47 @@ jobs:
           export METAFFI_SOURCE_ROOT="$GITHUB_WORKSPACE/metaffi-root"
           export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/linux/x64/${{ inputs.build_type }}"
           cmake -S "$GITHUB_WORKSPACE/metaffi-root" -B "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}" -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/vcpkg/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Capture Ubuntu vcpkg package list
+        if: success()
+        run: |
+          "$GITHUB_WORKSPACE/vcpkg/vcpkg" list | sort > "$GITHUB_WORKSPACE/vcpkg-current-packages.txt"
+
+      - name: Compare Ubuntu vcpkg package list
+        if: success()
+        run: |
+          cache_unchanged=true
+          if [ -f "$GITHUB_WORKSPACE/vcpkg-prev-packages.txt" ]; then
+            if ! cmp -s "$GITHUB_WORKSPACE/vcpkg-prev-packages.txt" "$GITHUB_WORKSPACE/vcpkg-current-packages.txt"; then
+              cache_unchanged=false
+            fi
+          fi
+          echo "VCPKG_UBUNTU_CACHE_UNCHANGED=$cache_unchanged" >> "$GITHUB_ENV"
+          if [ "$cache_unchanged" != "true" ]; then
+            echo "::warning::vcpkg package list changed; skipping cache upload."
+          fi
+
+      - name: Prepare Ubuntu vcpkg cache artifact
+        if: success() && env.VCPKG_UBUNTU_CACHE_UNCHANGED == 'true'
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/vcpkg-cache-upload"
+          mkdir -p "$GITHUB_WORKSPACE/vcpkg-cache-upload/installed"
+          mkdir -p "$GITHUB_WORKSPACE/vcpkg-cache-upload/downloads"
+          if [ -d "$GITHUB_WORKSPACE/vcpkg/installed" ]; then
+            cp -a "$GITHUB_WORKSPACE/vcpkg/installed/." "$GITHUB_WORKSPACE/vcpkg-cache-upload/installed/"
+          fi
+          if [ -d "$GITHUB_WORKSPACE/vcpkg/downloads" ]; then
+            cp -a "$GITHUB_WORKSPACE/vcpkg/downloads/." "$GITHUB_WORKSPACE/vcpkg-cache-upload/downloads/"
+          fi
+          cp "$GITHUB_WORKSPACE/vcpkg-current-packages.txt" "$GITHUB_WORKSPACE/vcpkg-cache-upload/vcpkg-packages.txt"
+
+      - name: Upload Ubuntu vcpkg cache artifact
+        if: success() && env.VCPKG_UBUNTU_CACHE_UNCHANGED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcpkg-cache-ubuntu
+          path: vcpkg-cache-upload
+          if-no-files-found: error
 
       - name: Build MetaFFI
         run: cmake --build "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" --target MetaFFI --config "${{ inputs.build_type }}"
