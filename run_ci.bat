@@ -2,7 +2,7 @@
 setlocal EnableDelayedExpansion
 
 set "WORKFLOW=manual-build-installers.yml"
-set "REPO=MetaFFI/metaffi-root"
+set "REPO=MetaFFI/metaffi-installer"
 set "VERSION="
 set "BUILD_TYPE="
 set "PUBLISH="
@@ -147,13 +147,13 @@ echo Options:
 echo   --version ^<value^>       Installer version ^(example: 0.3.1^)
 echo   --build-type ^<value^>    CMake build type: Debug ^| Release ^| RelWithDebInfo
 echo   --publish ^<value^>       Publish release assets: true ^| false
-echo   --repo ^<value^>          GitHub repo in owner/name form ^(default: MetaFFI/metaffi-root^)
+echo   --repo ^<value^>          GitHub repo in owner/name form ^(default: MetaFFI/metaffi-installer^)
 echo   --workflow ^<value^>      Workflow file/name ^(default: manual-build-installers.yml^)
 echo   -h, --help                Show this help
 echo.
 echo Examples:
 echo   run_ci.bat --version 0.3.1 --build-type Release --publish false
-echo   run_ci.bat --version 0.3.1 --build-type RelWithDebInfo --publish true --repo MetaFFI/metaffi-root
+echo   run_ci.bat --version 0.3.1 --build-type RelWithDebInfo --publish true --repo MetaFFI/metaffi-installer
 exit /b 0
 
 :show_help_error

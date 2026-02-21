@@ -1,0 +1,221 @@
+name: Manual Build + Installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Installer version (for artifact/release names)"
+        required: true
+        type: string
+      metaffi_root_ref:
+        description: "metaffi-root git ref (branch/tag/sha)"
+        required: true
+        default: "main"
+        type: string
+      build_type:
+        description: "CMake build type"
+        required: true
+        default: "Release"
+        type: choice
+        options:
+          - Debug
+          - Release
+          - RelWithDebInfo
+      publish:
+        description: "Publish release assets"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows + CTests + Installer
+    runs-on: windows-2022
+    steps:
+      - name: Checkout metaffi-installer
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Clone metaffi-root
+        shell: pwsh
+        run: |
+          git clone https://github.com/MetaFFI/metaffi-root.git metaffi-root
+          git -C metaffi-root fetch --all --tags
+          git -C metaffi-root checkout "${{ inputs.metaffi_root_ref }}"
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
+          $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
+          cmake -S "$env:GITHUB_WORKSPACE\metaffi-root" -B "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}"
+
+      - name: Build MetaFFI
+        shell: pwsh
+        run: cmake --build "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" --target MetaFFI --config "${{ inputs.build_type }}"
+
+      - name: Run CTests (fail-fast gate)
+        shell: pwsh
+        run: ctest --test-dir "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $env:METAFFI_WIN_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
+          python .\build_installer.py --target windows --version "${{ inputs.version }}" --output-name "metaffi-installer-${{ inputs.version }}-windows"
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-installer-windows
+          path: installers_output/metaffi-installer-${{ inputs.version }}-windows.exe
+          if-no-files-found: error
+
+  build-ubuntu:
+    name: Build Ubuntu + CTests + Installer
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout metaffi-installer
+        uses: actions/checkout@v4
+
+      - name: Install base dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ninja-build python3-pip python3-dev
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Clone metaffi-root
+        run: |
+          git clone https://github.com/MetaFFI/metaffi-root.git metaffi-root
+          git -C metaffi-root fetch --all --tags
+          git -C metaffi-root checkout "${{ inputs.metaffi_root_ref }}"
+
+      - name: Configure CMake
+        run: |
+          export METAFFI_SOURCE_ROOT="$GITHUB_WORKSPACE/metaffi-root"
+          export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/linux/x64/${{ inputs.build_type }}"
+          cmake -S "$GITHUB_WORKSPACE/metaffi-root" -B "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}"
+
+      - name: Build MetaFFI
+        run: cmake --build "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" --target MetaFFI --config "${{ inputs.build_type }}"
+
+      - name: Run CTests (fail-fast gate)
+        run: ctest --test-dir "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure
+
+      - name: Build Ubuntu installer
+        run: |
+          export METAFFI_UBUNTU_HOME="$GITHUB_WORKSPACE/metaffi-root/output/linux/x64/${{ inputs.build_type }}"
+          python3 ./build_installer.py --target ubuntu --version "${{ inputs.version }}" --output-name "metaffi-installer-${{ inputs.version }}-ubuntu"
+
+      - name: Upload Ubuntu installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-installer-ubuntu
+          path: installers_output/metaffi-installer-${{ inputs.version }}-ubuntu
+          if-no-files-found: error
+
+  combine-installers:
+    name: Build Combined Installer
+    runs-on: ubuntu-22.04
+    needs: [build-windows, build-ubuntu]
+    steps:
+      - name: Checkout metaffi-installer
+        uses: actions/checkout@v4
+
+      - name: Download Windows installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: metaffi-installer-windows
+          path: dist
+
+      - name: Download Ubuntu installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: metaffi-installer-ubuntu
+          path: dist
+
+      - name: Build combined installer
+        run: |
+          python3 ./build_combined_installer.py \
+            --windows-installer "./dist/metaffi-installer-${{ inputs.version }}-windows.exe" \
+            --ubuntu-installer "./dist/metaffi-installer-${{ inputs.version }}-ubuntu" \
+            --version "${{ inputs.version }}" \
+            --output "./dist/metaffi-installer-${{ inputs.version }}"
+
+      - name: Upload combined installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-installer-combined
+          path: dist/metaffi-installer-${{ inputs.version }}
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish Release Assets
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-22.04
+    needs: [build-windows, build-ubuntu, combine-installers]
+    steps:
+      - name: Download Windows installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: metaffi-installer-windows
+          path: dist
+
+      - name: Download Ubuntu installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: metaffi-installer-ubuntu
+          path: dist
+
+      - name: Download combined installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: metaffi-installer-combined
+          path: dist
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          TAG="v${VERSION}"
+          gh release view "${TAG}" >/dev/null 2>&1 || gh release create "${TAG}" --title "MetaFFI ${VERSION}" --notes "Manual CI build"
+          gh release upload "${TAG}" \
+            "./dist/metaffi-installer-${VERSION}-windows.exe" \
+            "./dist/metaffi-installer-${VERSION}-ubuntu" \
+            "./dist/metaffi-installer-${VERSION}" \
+            --clobber

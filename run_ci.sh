@@ -2,7 +2,7 @@
 set -euo pipefail
 
 WORKFLOW="manual-build-installers.yml"
-REPO="MetaFFI/metaffi-root"
+REPO="MetaFFI/metaffi-installer"
 VERSION=""
 BUILD_TYPE=""
 PUBLISH=""
@@ -18,13 +18,13 @@ Options:
   --version <value>       Installer version (example: 0.3.1)
   --build-type <value>    CMake build type: Debug | Release | RelWithDebInfo
   --publish <value>       Publish release assets: true | false
-  --repo <value>          GitHub repo in owner/name form (default: MetaFFI/metaffi-root)
+  --repo <value>          GitHub repo in owner/name form (default: MetaFFI/metaffi-installer)
   --workflow <value>      Workflow file/name (default: manual-build-installers.yml)
   -h, --help              Show this help
 
 Examples:
   ./run_ci.sh --version 0.3.1 --build-type Release --publish false
-  ./run_ci.sh --version 0.3.1 --build-type RelWithDebInfo --publish true --repo MetaFFI/metaffi-root
+  ./run_ci.sh --version 0.3.1 --build-type RelWithDebInfo --publish true --repo MetaFFI/metaffi-installer
 EOF
 }
 
