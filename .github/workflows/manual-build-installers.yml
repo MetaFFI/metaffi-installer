@@ -102,6 +102,18 @@ jobs:
           git -C metaffi-root fetch --all --tags
           git -C metaffi-root checkout "${{ inputs.metaffi_root_ref }}"
 
+      - name: Preinstall Windows vcpkg dependencies
+        shell: pwsh
+        run: |
+          & "C:\vcpkg\vcpkg.exe" install `
+            spdlog:x64-windows `
+            doctest:x64-windows `
+            nlohmann-json:x64-windows `
+            boost-filesystem:x64-windows `
+            boost-system:x64-windows `
+            boost-thread:x64-windows `
+            boost-program-options:x64-windows
+
       - name: Configure CMake
         shell: pwsh
         run: |
@@ -198,7 +210,7 @@ jobs:
       - name: Install base dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build python3-pip python3-dev
+          sudo apt-get install -y build-essential ninja-build python3-pip python3-dev autoconf autoconf-archive automake libtool
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -241,6 +253,17 @@ jobs:
           git clone https://github.com/MetaFFI/metaffi-root.git metaffi-root
           git -C metaffi-root fetch --all --tags
           git -C metaffi-root checkout "${{ inputs.metaffi_root_ref }}"
+
+      - name: Preinstall Ubuntu vcpkg dependencies
+        run: |
+          "$GITHUB_WORKSPACE/vcpkg/vcpkg" install \
+            spdlog:x64-linux \
+            doctest:x64-linux \
+            nlohmann-json:x64-linux \
+            boost-filesystem:x64-linux \
+            boost-system:x64-linux \
+            boost-thread:x64-linux \
+            boost-program-options:x64-linux
 
       - name: Configure CMake
         run: |
