@@ -125,7 +125,7 @@ jobs:
           $env:VCPKG_ROOT = "C:\vcpkg"
           $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
           $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
-          $env:PATH = "$env:METAFFI_HOME;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
+          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
           cmake -S "$env:GITHUB_WORKSPACE\metaffi-root" -B "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}" -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" -DVCPKG_ROOT="C:\vcpkg"
 
       - name: Capture Windows vcpkg package list
@@ -202,14 +202,22 @@ jobs:
         run: |
           $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
           $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
-          $env:PATH = "$env:METAFFI_HOME;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
+          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
 
           $apiCppDllInSdk = "$env:METAFFI_HOME\sdk\api\cpp\metaffi.api.cpp.dll"
           $apiCppDllInRoot = "$env:METAFFI_HOME\metaffi.api.cpp.dll"
+          if((Test-Path $apiCppDllInSdk) -and (-not (Test-Path $apiCppDllInRoot))){
+            Copy-Item -Path $apiCppDllInSdk -Destination $apiCppDllInRoot -Force
+            Write-Host "Copied metaffi.api.cpp.dll from sdk/api/cpp to METAFFI_HOME root."
+          }
           if(-not (Test-Path $apiCppDllInSdk) -and (Test-Path $apiCppDllInRoot)){
             New-Item -ItemType Directory -Path "$env:METAFFI_HOME\sdk\api\cpp" -Force | Out-Null
             Copy-Item -Path $apiCppDllInRoot -Destination $apiCppDllInSdk -Force
-            Write-Host "Copied metaffi.api.cpp.dll from METAFFI_HOME root to sdk/api/cpp for CTest runtime resolution."
+            Write-Host "Copied metaffi.api.cpp.dll from METAFFI_HOME root to sdk/api/cpp."
+          }
+          if((Test-Path $apiCppDllInSdk) -and (Test-Path $apiCppDllInRoot)){
+            Copy-Item -Path $apiCppDllInSdk -Destination $apiCppDllInRoot -Force
+            Write-Host "Synchronized metaffi.api.cpp.dll from sdk/api/cpp to METAFFI_HOME root."
           }
 
           Write-Host "METAFFI_SOURCE_ROOT=$env:METAFFI_SOURCE_ROOT"
@@ -241,7 +249,7 @@ jobs:
         run: |
           $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
           $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
-          $env:PATH = "$env:METAFFI_HOME;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
+          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
           $env:CGO_CFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
           $env:CGO_CPPFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
           $env:GOFLAGS = ""
