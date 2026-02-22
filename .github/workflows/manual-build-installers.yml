@@ -43,8 +43,10 @@ jobs:
         with:
           workflow: manual-build-installers.yml
           branch: main
+          workflow_conclusion: ""
           name: vcpkg-cache-windows
           path: vcpkg-cache
+          check_artifacts: true
           search_artifacts: true
           if_no_artifact_found: warn
 
@@ -208,8 +210,10 @@ jobs:
         with:
           workflow: manual-build-installers.yml
           branch: main
+          workflow_conclusion: ""
           name: vcpkg-cache-ubuntu
           path: vcpkg-cache
+          check_artifacts: true
           search_artifacts: true
           if_no_artifact_found: warn
 
