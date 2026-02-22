@@ -60,7 +60,7 @@ jobs:
       - name: Configure Go module mode
         shell: pwsh
         run: |
-          "GOFLAGS=-mod=mod" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "GOFLAGS=-mod=readonly" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -187,7 +187,8 @@ jobs:
             "jvm_idl_plugin_java_tests_classes",
             "jvm_api_test_classes",
             "jvm_host_compiler_test_classes",
-            "jvm_host_compiler_e2e_test_classes"
+            "jvm_host_compiler_e2e_test_classes",
+            "go_api_test"
           )
 
           foreach($target in $targets){
@@ -234,7 +235,7 @@ jobs:
           $env:PATH = "$env:METAFFI_HOME;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
           $env:CGO_CFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
           $env:CGO_CPPFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
-          $env:GOFLAGS = "-mod=mod"
+          $env:GOFLAGS = ""
           $env:GOWORK = "auto"
           ctest --test-dir "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure
 
@@ -283,7 +284,8 @@ jobs:
           go-version: "1.26"
 
       - name: Configure Go module mode
-        run: echo "GOFLAGS=-mod=mod" >> "$GITHUB_ENV"
+        run: echo "GOFLAGS=-mod=readonly" >> "$GITHUB_ENV"
+        
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -389,7 +391,7 @@ jobs:
           export PATH="$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/bin:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/debug/bin:$PATH"
           export CGO_CFLAGS="-I$METAFFI_HOME -I$METAFFI_SOURCE_ROOT/sdk"
           export CGO_CPPFLAGS="-I$METAFFI_HOME -I$METAFFI_SOURCE_ROOT/sdk"
-          export GOFLAGS="-mod=mod"
+          export GOFLAGS=""
           export GOWORK=auto
           ctest --test-dir "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure
 
