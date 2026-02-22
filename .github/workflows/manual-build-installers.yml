@@ -183,7 +183,10 @@ jobs:
 
       - name: Run CTests (fail-fast gate)
         shell: pwsh
-        run: ctest --test-dir "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure
+        run: |
+          $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
+          $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
+          ctest --test-dir "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure
 
       - name: Build Windows installer
         shell: pwsh
@@ -286,7 +289,7 @@ jobs:
       - name: Configure CMake
         run: |
           export METAFFI_SOURCE_ROOT="$GITHUB_WORKSPACE/metaffi-root"
-          export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/linux/x64/${{ inputs.build_type }}"
+          export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
           cmake -S "$GITHUB_WORKSPACE/metaffi-root" -B "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}" -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
       - name: Capture Ubuntu vcpkg package list
@@ -334,11 +337,14 @@ jobs:
         run: cmake --build "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" --target MetaFFI --config "${{ inputs.build_type }}"
 
       - name: Run CTests (fail-fast gate)
-        run: ctest --test-dir "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure
+        run: |
+          export METAFFI_SOURCE_ROOT="$GITHUB_WORKSPACE/metaffi-root"
+          export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
+          ctest --test-dir "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure
 
       - name: Build Ubuntu installer
         run: |
-          export METAFFI_UBUNTU_HOME="$GITHUB_WORKSPACE/metaffi-root/output/linux/x64/${{ inputs.build_type }}"
+          export METAFFI_UBUNTU_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
           python3 ./build_installer.py --target ubuntu --version "${{ inputs.version }}" --output-name "metaffi-installer-${{ inputs.version }}-ubuntu"
 
       - name: Upload Ubuntu installer artifact
