@@ -254,6 +254,10 @@ jobs:
             echo "Restoring cached vcpkg downloads tree..."
             mkdir -p "$GITHUB_WORKSPACE/vcpkg/downloads"
             cp -a "$GITHUB_WORKSPACE/vcpkg-cache/downloads/." "$GITHUB_WORKSPACE/vcpkg/downloads/"
+            # Artifacts may lose executable bits on Linux; restore for cached tool binaries.
+            if [ -d "$GITHUB_WORKSPACE/vcpkg/downloads/tools" ]; then
+              find "$GITHUB_WORKSPACE/vcpkg/downloads/tools" -type f -exec chmod u+x {} +
+            fi
           fi
           if [ -f "$GITHUB_WORKSPACE/vcpkg-cache/vcpkg-packages.txt" ]; then
             cp "$GITHUB_WORKSPACE/vcpkg-cache/vcpkg-packages.txt" "$GITHUB_WORKSPACE/vcpkg-prev-packages.txt"
