@@ -244,6 +244,77 @@ jobs:
             exit 1
           }
 
+      - name: Diagnose Windows JVM + pre-gate jvm_host_test
+        shell: pwsh
+        run: |
+          $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
+          $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
+          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
+          $env:CGO_CFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
+          $env:CGO_CPPFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
+          $env:GOFLAGS = ""
+          $env:GOWORK = "auto"
+          $env:METAFFI_JVM_TEST_TRACE = "1"
+          $env:METAFFI_JVM_DIAG = "1"
+
+          Write-Host "+++ windows_diag METAFFI_SOURCE_ROOT=$env:METAFFI_SOURCE_ROOT"
+          Write-Host "+++ windows_diag METAFFI_HOME=$env:METAFFI_HOME"
+          Write-Host "+++ windows_diag JAVA_HOME=$env:JAVA_HOME"
+          Write-Host "+++ windows_diag JDK_HOME=$env:JDK_HOME"
+
+          $pathEntries = $env:PATH -split ';'
+          for($i = 0; $i -lt $pathEntries.Count; $i++){
+            Write-Host "+++ windows_diag PATH[$i]=$($pathEntries[$i])"
+          }
+
+          function Write-WhereMatches {
+            param([string]$Pattern)
+            $matches = & where.exe $Pattern 2>$null
+            if($LASTEXITCODE -eq 0){
+              foreach($match in $matches){
+                Write-Host "+++ windows_diag where $Pattern => $match"
+              }
+            } else {
+              Write-Host "+++ windows_diag where $Pattern => NOT_FOUND"
+            }
+          }
+
+          function Write-FileDiagnostics {
+            param([string]$PathValue)
+            if(-not (Test-Path -LiteralPath $PathValue)){
+              Write-Host "+++ windows_diag file_missing=$PathValue"
+              return
+            }
+
+            $hash = (Get-FileHash -LiteralPath $PathValue -Algorithm SHA256).Hash
+            $version = ""
+            try{
+              $version = (Get-Item -LiteralPath $PathValue).VersionInfo.FileVersion
+            } catch {
+              $version = ""
+            }
+            Write-Host "+++ windows_diag file=$PathValue sha256=$hash version=$version"
+          }
+
+          Write-WhereMatches "java"
+          Write-WhereMatches "javac"
+          Write-WhereMatches "jvm.dll"
+          Write-WhereMatches "xllr.dll"
+          Write-WhereMatches "metaffi.api.cpp.dll"
+
+          Write-FileDiagnostics "$env:JAVA_HOME\bin\java.exe"
+          Write-FileDiagnostics "$env:JAVA_HOME\bin\server\jvm.dll"
+          Write-FileDiagnostics "$env:METAFFI_HOME\xllr.dll"
+          Write-FileDiagnostics "$env:METAFFI_HOME\jvm\xllr.jvm.dll"
+          Write-FileDiagnostics "$env:METAFFI_HOME\sdk\api\jvm\metaffi.api.jar"
+          Write-FileDiagnostics "$env:METAFFI_SOURCE_ROOT\sdk\test_modules\guest_modules\java\test_bin\guest_java.jar"
+
+          & java -XshowSettings:properties -version 2>&1 | ForEach-Object {
+            Write-Host "+++ windows_diag java_settings $_"
+          }
+
+          ctest --test-dir "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" -R "^jvm_host_test$" -V --output-on-failure
+
       - name: Run CTests (fail-fast gate)
         shell: pwsh
         run: |
@@ -254,6 +325,8 @@ jobs:
           $env:CGO_CPPFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
           $env:GOFLAGS = ""
           $env:GOWORK = "auto"
+          $env:METAFFI_JVM_TEST_TRACE = "1"
+          $env:METAFFI_JVM_DIAG = "1"
           ctest --test-dir "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure
 
       - name: Build Windows installer
