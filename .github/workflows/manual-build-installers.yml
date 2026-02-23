@@ -508,6 +508,40 @@ jobs:
           test -f "$METAFFI_HOME/sdk/api/jvm/metaffi.api.jar"
           test -f "$METAFFI_SOURCE_ROOT/sdk/test_modules/guest_modules/java/test_bin/guest_java.jar"
 
+      - name: Normalize Ubuntu CTest runtime artifacts
+        run: |
+          export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
+
+          # Some tests expect libxllr.test.so while build output may produce xllr.test.so.
+          if [ -f "$METAFFI_HOME/test/xllr.test.so" ] && [ ! -f "$METAFFI_HOME/test/libxllr.test.so" ]; then
+            cp "$METAFFI_HOME/test/xllr.test.so" "$METAFFI_HOME/test/libxllr.test.so"
+            echo "Created compatibility copy: libxllr.test.so"
+          fi
+          if [ -f "$METAFFI_HOME/test/libxllr.test.so" ] && [ ! -f "$METAFFI_HOME/test/xllr.test.so" ]; then
+            cp "$METAFFI_HOME/test/libxllr.test.so" "$METAFFI_HOME/test/xllr.test.so"
+            echo "Created compatibility copy: xllr.test.so"
+          fi
+
+          # go runtime loader fails when more than one xllr.go.so exists under METAFFI_HOME.
+          mapfile -t go_plugins < <(find "$METAFFI_HOME" -type f -name "xllr.go.so" | sort)
+          if [ "${#go_plugins[@]}" -gt 1 ]; then
+            keep_plugin="$METAFFI_HOME/xllr.go.so"
+            if [ ! -f "$keep_plugin" ]; then
+              keep_plugin="${go_plugins[0]}"
+            fi
+            for plugin_path in "${go_plugins[@]}"; do
+              if [ "$plugin_path" != "$keep_plugin" ]; then
+                rm -f "$plugin_path"
+                echo "Removed duplicate go runtime plugin: $plugin_path"
+              fi
+            done
+          fi
+
+          echo "xllr.test candidates:"
+          find "$METAFFI_HOME/test" -maxdepth 1 -type f \( -name "xllr.test.so" -o -name "libxllr.test.so" \) -print || true
+          echo "xllr.go.so candidates:"
+          find "$METAFFI_HOME" -type f -name "xllr.go.so" -print || true
+
       - name: Run CTests (fail-fast gate)
         run: |
           export METAFFI_SOURCE_ROOT="$GITHUB_WORKSPACE/metaffi-root"
