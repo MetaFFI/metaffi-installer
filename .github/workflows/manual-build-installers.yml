@@ -354,9 +354,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: vcpkg-cache
-          key: vcpkg-cache-ubuntu-x64-linux-${{ inputs.metaffi_root_ref }}-v1
+          key: vcpkg-cache-ubuntu-x64-linux-dynamic-${{ inputs.metaffi_root_ref }}-v1
           restore-keys: |
-            vcpkg-cache-ubuntu-x64-linux-
+            vcpkg-cache-ubuntu-x64-linux-dynamic-
 
       - name: Install base dependencies
         run: |
@@ -416,20 +416,20 @@ jobs:
       - name: Preinstall Ubuntu vcpkg dependencies
         run: |
           "$GITHUB_WORKSPACE/vcpkg/vcpkg" install \
-            spdlog:x64-linux \
-            doctest:x64-linux \
-            nlohmann-json:x64-linux \
-            boost-filesystem:x64-linux \
-            boost-dll:x64-linux \
-            boost-system:x64-linux \
-            boost-thread:x64-linux \
-            boost-program-options:x64-linux
+            spdlog:x64-linux-dynamic \
+            doctest:x64-linux-dynamic \
+            nlohmann-json:x64-linux-dynamic \
+            boost-filesystem:x64-linux-dynamic \
+            boost-dll:x64-linux-dynamic \
+            boost-system:x64-linux-dynamic \
+            boost-thread:x64-linux-dynamic \
+            boost-program-options:x64-linux-dynamic
 
       - name: Configure CMake
         run: |
           export METAFFI_SOURCE_ROOT="$GITHUB_WORKSPACE/metaffi-root"
           export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
-          cmake -S "$GITHUB_WORKSPACE/metaffi-root" -B "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}" -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          cmake -S "$GITHUB_WORKSPACE/metaffi-root" -B "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}" -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-linux-dynamic
 
       - name: Capture Ubuntu vcpkg package list
         if: success()
@@ -496,8 +496,8 @@ jobs:
         run: |
           export METAFFI_SOURCE_ROOT="$GITHUB_WORKSPACE/metaffi-root"
           export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
-          export PATH="$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$JAVA_HOME/bin:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/bin:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/debug/bin:$PATH"
-          export LD_LIBRARY_PATH="$JAVA_HOME/lib/server:$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/lib:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/debug/lib:${LD_LIBRARY_PATH:-}"
+          export PATH="$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$JAVA_HOME/bin:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/bin:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/bin:$PATH"
+          export LD_LIBRARY_PATH="$JAVA_HOME/lib/server:$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/lib:${LD_LIBRARY_PATH:-}"
 
           echo "METAFFI_SOURCE_ROOT=$METAFFI_SOURCE_ROOT"
           echo "METAFFI_HOME=$METAFFI_HOME"
@@ -512,8 +512,8 @@ jobs:
         run: |
           export METAFFI_SOURCE_ROOT="$GITHUB_WORKSPACE/metaffi-root"
           export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
-          export PATH="$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$JAVA_HOME/bin:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/bin:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/debug/bin:$PATH"
-          export LD_LIBRARY_PATH="$JAVA_HOME/lib/server:$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/lib:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/debug/lib:${LD_LIBRARY_PATH:-}"
+          export PATH="$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$JAVA_HOME/bin:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/bin:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/bin:$PATH"
+          export LD_LIBRARY_PATH="$JAVA_HOME/lib/server:$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/lib:${LD_LIBRARY_PATH:-}"
           export CGO_CFLAGS="-I$METAFFI_HOME -I$METAFFI_SOURCE_ROOT/sdk"
           export CGO_CPPFLAGS="-I$METAFFI_HOME -I$METAFFI_SOURCE_ROOT/sdk"
           export GOFLAGS=""
@@ -526,10 +526,10 @@ jobs:
       - name: Copy boost shared libs to output dir for installer packaging
         run: |
           METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
-          VCPKG_LIB="$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/lib"
-          cp -v "$VCPKG_LIB"/libboost_filesystem.so* "$METAFFI_HOME/" || true
-          cp -v "$VCPKG_LIB"/libboost_program_options.so* "$METAFFI_HOME/" || true
-          cp -v "$VCPKG_LIB"/libboost_thread.so* "$METAFFI_HOME/" || true
+          VCPKG_LIB="$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib"
+          cp -v "$VCPKG_LIB"/libboost_filesystem.so* "$METAFFI_HOME/"
+          cp -v "$VCPKG_LIB"/libboost_program_options.so* "$METAFFI_HOME/"
+          cp -v "$VCPKG_LIB"/libboost_thread.so* "$METAFFI_HOME/"
           ls -la "$METAFFI_HOME"/libboost_*.so*
 
       - name: Build Ubuntu installer
