@@ -495,9 +495,10 @@ jobs:
       - name: Copy vcpkg shared libs to output dir
         run: |
           METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
-          VCPKG_LIB="$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib"
-          echo "Copying all vcpkg shared libs from $VCPKG_LIB to $METAFFI_HOME"
-          cp -v "$VCPKG_LIB"/*.so* "$METAFFI_HOME/"
+          VCPKG_INSTALLED="$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic"
+          echo "Copying vcpkg shared libs (release + debug) to $METAFFI_HOME"
+          cp -v "$VCPKG_INSTALLED"/lib/*.so* "$METAFFI_HOME/" 2>/dev/null || true
+          cp -v "$VCPKG_INSTALLED"/debug/lib/*.so* "$METAFFI_HOME/" 2>/dev/null || true
           ls -la "$METAFFI_HOME"/*.so*
 
       - name: Validate Ubuntu CTest environment
