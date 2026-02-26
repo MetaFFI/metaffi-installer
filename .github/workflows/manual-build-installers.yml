@@ -523,6 +523,15 @@ jobs:
           ctest --test-dir "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" -R "^go_host_test_build_guest$" --output-on-failure
           ctest --test-dir "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure
 
+      - name: Copy boost shared libs to output dir for installer packaging
+        run: |
+          METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
+          VCPKG_LIB="$GITHUB_WORKSPACE/vcpkg/installed/x64-linux/lib"
+          cp -v "$VCPKG_LIB"/libboost_filesystem.so* "$METAFFI_HOME/" || true
+          cp -v "$VCPKG_LIB"/libboost_program_options.so* "$METAFFI_HOME/" || true
+          cp -v "$VCPKG_LIB"/libboost_thread.so* "$METAFFI_HOME/" || true
+          ls -la "$METAFFI_HOME"/libboost_*.so*
+
       - name: Build Ubuntu installer
         run: |
           export METAFFI_UBUNTU_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"

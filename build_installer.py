@@ -305,7 +305,11 @@ def build_windows_installer(version: str, output_name: str | None):
 
 
 def build_ubuntu_installer(version: str, output_name: str | None):
-	metaffi_ubuntu_home = get_required_env_dir("METAFFI_UBUNTU_HOME")
+	# On Ubuntu, fall back to METAFFI_HOME if METAFFI_UBUNTU_HOME is not set
+	env_name = "METAFFI_UBUNTU_HOME"
+	if not os.getenv(env_name) and platform.system() == "Linux":
+		env_name = "METAFFI_HOME"
+	metaffi_ubuntu_home = get_required_env_dir(env_name)
 	os.makedirs("./installers_output", exist_ok=True)
 
 	create_uninstaller_elf()
