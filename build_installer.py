@@ -240,14 +240,14 @@ def create_linux_executable(output_file_py: str, output_name: str):
 			output_file_py = "/mnt/" + output_file_py
 
 		wsl_command = """
-		python3 -m pip install pyinstaller pycrosskit python-dotenv
-		pyinstaller --onefile --console --hidden-import pycrosskit --hidden-import pycrosskit.envariables --hidden-import python-dotenv --hidden-import dotenv --name {} --distpath ./installers_output {}
+		python3 -m pip install pyinstaller pycrosskit python-dotenv distro
+		pyinstaller --onefile --console --hidden-import pycrosskit --hidden-import pycrosskit.envariables --hidden-import python-dotenv --hidden-import dotenv --hidden-import distro --name {} --distpath ./installers_output {}
 		""".format(
 			output_name, output_file_py
 		)
 		subprocess.run(["wsl", "-e", "bash", "-c", wsl_command], check=True)
 	else:
-		subprocess.run(["python3", "-m", "pip", "install", "pyinstaller", "pycrosskit", "python-dotenv"], check=True)
+		subprocess.run(["python3", "-m", "pip", "install", "pyinstaller", "pycrosskit", "python-dotenv", "distro"], check=True)
 		subprocess.run(
 			[
 				"pyinstaller",
@@ -261,6 +261,8 @@ def create_linux_executable(output_file_py: str, output_name: str):
 				"python-dotenv",
 				"--hidden-import",
 				"dotenv",
+				"--hidden-import",
+				"distro",
 				"--name",
 				output_name,
 				"--distpath",
