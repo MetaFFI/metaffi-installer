@@ -472,10 +472,13 @@ jobs:
           key: ${{ steps.cache-ubuntu-vcpkg-restore.outputs.cache-primary-key }}
 
       - name: Build MetaFFI
-        run: cmake --build "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" --target MetaFFI --config "${{ inputs.build_type }}"
+        run: |
+          export LD_LIBRARY_PATH="$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/lib:${LD_LIBRARY_PATH:-}"
+          cmake --build "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" --target MetaFFI --config "${{ inputs.build_type }}"
 
       - name: Build Ubuntu CTest prerequisites
         run: |
+          export LD_LIBRARY_PATH="$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/lib:${LD_LIBRARY_PATH:-}"
           build_dir="$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}"
           config="${{ inputs.build_type }}"
           targets=(
@@ -492,14 +495,20 @@ jobs:
             cmake --build "$build_dir" --target "$target" --config "$config"
           done
 
-      - name: Copy vcpkg shared libs to output dir
+      - name: Verify dynamic library resolution
         run: |
           METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
-          VCPKG_INSTALLED="$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic"
-          echo "Copying vcpkg shared libs (release + debug) to $METAFFI_HOME"
-          cp -v "$VCPKG_INSTALLED"/lib/*.so* "$METAFFI_HOME/" 2>/dev/null || true
-          cp -v "$VCPKG_INSTALLED"/debug/lib/*.so* "$METAFFI_HOME/" 2>/dev/null || true
-          ls -la "$METAFFI_HOME"/*.so*
+          failed=0
+          for bin in "$METAFFI_HOME/metaffi" "$METAFFI_HOME/xllr.so"; do
+            echo "=== Checking $(basename $bin) ==="
+            ldd "$bin"
+            if ldd "$bin" | grep "not found"; then
+              echo "ERROR: $(basename $bin) has unresolved dynamic libraries"
+              failed=1
+            fi
+          done
+          if [ $failed -ne 0 ]; then exit 1; fi
+          echo "All dynamic libraries resolved successfully"
 
       - name: Validate Ubuntu CTest environment
         run: |
