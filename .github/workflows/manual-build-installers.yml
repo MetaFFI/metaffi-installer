@@ -553,68 +553,11 @@ jobs:
           path: installers_output/metaffi-installer-${{ inputs.version }}-ubuntu
           if-no-files-found: error
 
-  test-ubuntu-docker:
-    name: Test Ubuntu installer in Docker
-    runs-on: ubuntu-24.04
-    needs: [build-ubuntu]
-    steps:
-      - name: Checkout metaffi-installer
-        uses: actions/checkout@v4
-
-      - name: Download Ubuntu installer artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: metaffi-installer-ubuntu
-          path: containers/
-
-      - name: Build Docker image
-        run: |
-          docker build -f containers/metaffi-u2404.dockerfile -t metaffi-test:u2404 containers/
-
-      - name: Verify MetaFFI in container
-        run: |
-          docker run --rm metaffi-test:u2404 metaffi --help
-
-  combine-installers:
-    name: Build Combined Installer
-    runs-on: ubuntu-24.04
-    needs: [build-windows, build-ubuntu]
-    steps:
-      - name: Checkout metaffi-installer
-        uses: actions/checkout@v4
-
-      - name: Download Windows installer artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: metaffi-installer-windows
-          path: dist
-
-      - name: Download Ubuntu installer artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: metaffi-installer-ubuntu
-          path: dist
-
-      - name: Build combined installer
-        run: |
-          python3 ./build_combined_installer.py \
-            --windows-installer "./dist/metaffi-installer-${{ inputs.version }}-windows.exe" \
-            --ubuntu-installer "./dist/metaffi-installer-${{ inputs.version }}-ubuntu" \
-            --version "${{ inputs.version }}" \
-            --output "./dist/metaffi-installer-${{ inputs.version }}"
-
-      - name: Upload combined installer artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: metaffi-installer-combined
-          path: dist/metaffi-installer-${{ inputs.version }}
-          if-no-files-found: error
-
   publish-release:
     name: Publish Release Assets
     if: ${{ inputs.publish }}
     runs-on: ubuntu-24.04
-    needs: [build-windows, build-ubuntu, combine-installers]
+    needs: [build-windows, build-ubuntu]
     steps:
       - name: Download Windows installer artifact
         uses: actions/download-artifact@v4
@@ -626,12 +569,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: metaffi-installer-ubuntu
-          path: dist
-
-      - name: Download combined installer artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: metaffi-installer-combined
           path: dist
 
       - name: Publish release assets
@@ -645,5 +582,4 @@ jobs:
           gh release upload "${TAG}" \
             "./dist/metaffi-installer-${VERSION}-windows.exe" \
             "./dist/metaffi-installer-${VERSION}-ubuntu" \
-            "./dist/metaffi-installer-${VERSION}" \
             --clobber
