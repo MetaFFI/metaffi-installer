@@ -45,7 +45,7 @@ def create_installer_file(python_source_filename: str, windows_zip: bytes, ubunt
 	windows_zip_str = base64.b64encode(windows_zip)
 	ubuntu_zip_str = base64.b64encode(ubuntu_zip)
 
-	with open("metaffi_installer_template.py", "r") as f:
+	with open("templates/metaffi_installer_template.py", "r") as f:
 		source_code = f.read()
 
 	source_code = re.sub(r"windows_x64_zip\s*=\s*.+", f"windows_x64_zip = {windows_zip_str}", source_code, count=1)
@@ -64,7 +64,7 @@ def create_uninstaller_exe():
 	os.makedirs(temp_dir, exist_ok=True)
 
 	try:
-		shutil.copy("uninstall_template.py", os.path.join(temp_dir, "uninstaller.py"))
+		shutil.copy("templates/uninstall_template.py", os.path.join(temp_dir, "uninstaller.py"))
 		subprocess.run(
 			[
 				"pyinstaller",
@@ -93,7 +93,7 @@ def create_uninstaller_elf():
 	os.makedirs(temp_dir, exist_ok=True)
 
 	try:
-		shutil.copy("uninstall_template.py", os.path.join(temp_dir, "uninstaller.py"))
+		shutil.copy("templates/uninstall_template.py", os.path.join(temp_dir, "uninstaller.py"))
 
 		if platform.system() == "Windows":
 			def to_wsl_path(path: str):
@@ -293,7 +293,7 @@ def build_windows_installer(version: str, output_name: str | None):
 	windows_zip = zip_installer_files(windows_files, metaffi_win_home)
 
 	output_file_py = "./installers_output/metaffi_installer_windows.py"
-	shutil.copy("metaffi_installer_template.py", output_file_py)
+	shutil.copy("templates/metaffi_installer_template.py", output_file_py)
 	create_installer_file(output_file_py, windows_zip, b"", version)
 
 	if output_name is None or output_name == "":
@@ -319,7 +319,7 @@ def build_ubuntu_installer(version: str, output_name: str | None):
 	ubuntu_zip = zip_installer_files(ubuntu_files, metaffi_ubuntu_home)
 
 	output_file_py = "./installers_output/metaffi_installer_ubuntu.py"
-	shutil.copy("metaffi_installer_template.py", output_file_py)
+	shutil.copy("templates/metaffi_installer_template.py", output_file_py)
 	create_installer_file(output_file_py, b"", ubuntu_zip, version)
 
 	if output_name is None or output_name == "":
@@ -348,7 +348,7 @@ def build_all_installers(version: str):
 	ubuntu_zip = zip_installer_files(ubuntu_files, metaffi_ubuntu_home)
 
 	output_file_py = "./installers_output/metaffi_installer.py"
-	shutil.copy("metaffi_installer_template.py", output_file_py)
+	shutil.copy("templates/metaffi_installer_template.py", output_file_py)
 	create_installer_file(output_file_py, windows_zip, ubuntu_zip, version)
 
 	create_windows_exe(output_file_py, f"metaffi-installer-{version}")

@@ -553,6 +553,28 @@ jobs:
           path: installers_output/metaffi-installer-${{ inputs.version }}-ubuntu
           if-no-files-found: error
 
+  test-ubuntu-docker:
+    name: Test Ubuntu installer in Docker
+    runs-on: ubuntu-24.04
+    needs: [build-ubuntu]
+    steps:
+      - name: Checkout metaffi-installer
+        uses: actions/checkout@v4
+
+      - name: Download Ubuntu installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: metaffi-installer-ubuntu
+          path: containers/
+
+      - name: Build Docker image
+        run: |
+          docker build -f containers/metaffi-u2404.dockerfile -t metaffi-test:u2404 containers/
+
+      - name: Verify MetaFFI in container
+        run: |
+          docker run --rm metaffi-test:u2404 metaffi --help
+
   combine-installers:
     name: Build Combined Installer
     runs-on: ubuntu-24.04

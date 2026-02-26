@@ -75,7 +75,7 @@ def create_plugin_installer_file(generated_installer_name: str, plugin_name: str
 	ubuntu_zip_str = base64.b64encode(ubuntu_zip)
 	
 	# Open the source file in read mode
-	with open('metaffi_plugin_installer_template.py', "r") as f:
+	with open('templates/metaffi_plugin_installer_template.py', "r") as f:
 		# Read the source code as a string
 		source_code = f.read()
 	
