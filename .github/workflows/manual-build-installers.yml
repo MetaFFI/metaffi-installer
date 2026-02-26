@@ -492,14 +492,13 @@ jobs:
             cmake --build "$build_dir" --target "$target" --config "$config"
           done
 
-      - name: Copy boost shared libs to output dir
+      - name: Copy vcpkg shared libs to output dir
         run: |
           METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
           VCPKG_LIB="$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib"
-          cp -v "$VCPKG_LIB"/libboost_filesystem.so* "$METAFFI_HOME/"
-          cp -v "$VCPKG_LIB"/libboost_program_options.so* "$METAFFI_HOME/"
-          cp -v "$VCPKG_LIB"/libboost_thread.so* "$METAFFI_HOME/"
-          ls -la "$METAFFI_HOME"/libboost_*.so*
+          echo "Copying all vcpkg shared libs from $VCPKG_LIB to $METAFFI_HOME"
+          cp -v "$VCPKG_LIB"/*.so* "$METAFFI_HOME/"
+          ls -la "$METAFFI_HOME"/*.so*
 
       - name: Validate Ubuntu CTest environment
         run: |
