@@ -2,24 +2,137 @@ import argparse
 import base64
 import glob
 import io
+import json
 import os
 import platform
 import re
 import shutil
 import subprocess
 import zipfile
-from typing import List
+from typing import List, Tuple, Union
+
 from version import METAFFI_VERSION
 
 
-def get_required_env_dir(env_name: str) -> str:
-	value = os.getenv(env_name)
-	assert value is not None and value != "", f"{env_name} is not set"
-	assert os.path.isdir(value), f"{env_name} is not a directory. value={value}. current dir={os.getcwd()}"
-	return value.replace("\\", "/") + "/"
+FileEntry = Union[str, Tuple[str, str]]
 
 
-def zip_installer_files(files: List[str], root: str):
+def get_ubuntu_version_tag() -> str:
+	"""Returns the Ubuntu version as a compact tag (e.g. '2204', '2404').
+
+	On Linux, reads from /etc/os-release. On Windows, queries WSL.
+	Falls back to 'unknown' if detection fails.
+	"""
+	try:
+		if platform.system() == "Linux":
+			with open("/etc/os-release", "r") as f:
+				for line in f:
+					if line.startswith("VERSION_ID="):
+						ver = line.strip().split("=", 1)[1].strip('"')
+						return ver.replace(".", "")
+		else:
+			# Query WSL for the Ubuntu version
+			result = subprocess.run(
+				["wsl", "-e", "bash", "-c", ". /etc/os-release && echo $VERSION_ID"],
+				capture_output=True, text=True, timeout=10
+			)
+			if result.returncode == 0:
+				ver = result.stdout.strip().strip('"')
+				if ver:
+					return ver.replace(".", "")
+	except Exception as e:
+		print(f"Warning: could not detect Ubuntu version: {e}")
+
+	return "unknown"
+
+
+def get_project_root() -> str:
+	"""Returns the MetaFFI project root (parent of metaffi-installer/)."""
+	return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def get_output_dir(target: str, config: str) -> str:
+	"""Derives the output directory path from convention: {project_root}/output/{os}/x64/{config}/."""
+	os_name = {"windows": "windows", "ubuntu": "ubuntu"}[target]
+	path = os.path.join(get_project_root(), "output", os_name, "x64", config)
+	assert os.path.isdir(path), f"Output dir not found: {path}"
+	return path.replace("\\", "/") + "/"
+
+
+def load_manifest() -> dict:
+	"""Reads installer_manifest.json from the script directory."""
+	manifest_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "installer_manifest.json")
+	with open(manifest_path, "r") as f:
+		return json.load(f)
+
+
+def resolve_manifest_files(entries: list, output_dir: str) -> List[FileEntry]:
+	"""Resolves manifest entries into a list of file entries for zip_installer_files().
+
+	Each entry can be:
+	- A string: relative glob/path resolved against output_dir
+	- A dict with 'src' and 'dest': src supports env var expansion and globs.
+	  If relative, resolved against output_dir. If dest ends with '/', basename is appended.
+	  If 'optional' is true, missing files produce a warning instead of an error.
+
+	Returns a list of strings (relative paths) and (abs_src, arcname) tuples.
+	"""
+	result: List[FileEntry] = []
+
+	for entry in entries:
+		if isinstance(entry, str):
+			# Simple string entry — relative glob against output_dir
+			matches = glob.glob(os.path.join(output_dir, entry))
+			if not matches:
+				raise FileNotFoundError(f"No files found matching pattern: {entry} in {output_dir}")
+
+			for match in matches:
+				rel = os.path.relpath(match, output_dir).replace("\\", "/")
+				result.append(rel)
+
+		elif isinstance(entry, dict):
+			src_pattern = entry["src"]
+			dest = entry["dest"]
+			optional = entry.get("optional", False)
+
+			# Expand environment variables in src
+			src_pattern = os.path.expandvars(src_pattern)
+
+			# If relative, resolve against output_dir
+			if not os.path.isabs(src_pattern):
+				src_pattern = os.path.join(output_dir, src_pattern)
+
+			# Normalize path separators
+			src_pattern = src_pattern.replace("\\", "/")
+
+			# Expand globs
+			matches = glob.glob(src_pattern)
+
+			if not matches:
+				if optional:
+					print(f"Warning: optional file not found, skipping: {src_pattern}")
+					continue
+				else:
+					raise FileNotFoundError(f"Required file not found: {src_pattern}")
+
+			for match in matches:
+				abs_src = match.replace("\\", "/")
+
+				# If dest ends with '/', put file into that directory keeping its basename
+				if dest.endswith("/"):
+					arcname = dest + os.path.basename(match)
+				else:
+					arcname = dest
+
+				result.append((abs_src, arcname))
+
+		else:
+			raise ValueError(f"Unexpected manifest entry type: {type(entry)}")
+
+	return result
+
+
+def zip_installer_files(files: List[FileEntry], root: str):
 	buffer = io.BytesIO()
 	with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
 		for file in files:
@@ -106,7 +219,9 @@ def create_uninstaller_elf():
 			wsl_output_dir = to_wsl_path(os.path.join(os.getcwd(), "installers_output"))
 			wsl_command = f"""
 			cd "{wsl_temp_dir}"
-			python3 -m pip install pyinstaller
+			python3 -m venv .venv
+			source .venv/bin/activate
+			pip install pyinstaller
 			pyinstaller --onefile --console --name uninstall --distpath "{wsl_temp_dir}" uninstaller.py
 			cp "{wsl_temp_dir}/uninstall" "{wsl_output_dir}/"
 			"""
@@ -134,77 +249,16 @@ def create_uninstaller_elf():
 			os.remove(spec_file)
 
 
-def get_windows_metaffi_files(metaffi_win_home: str):
-	files = []
-	system32 = os.environ["SystemRoot"] + "/system32/"
-	files.extend(["xllr.dll", "metaffi.exe", "uninstall.exe", "boost_filesystem*.dll", "boost_program_options*.dll"])
-
-	required_runtime = [
-		(f"{system32}msvcp140.dll", "msvcp140.dll"),
-	]
-	optional_runtime = [
-		(f"{system32}vcruntime140_1d.dll", "vcruntime140_1d.dll"),
-		(f"{system32}vcruntime140d.dll", "vcruntime140d.dll"),
-		(f"{system32}msvcp140d.dll", "msvcp140d.dll"),
-		(f"{system32}ucrtbased.dll", "ucrtbased.dll"),
-	]
-
-	for src, dst in required_runtime:
-		if not os.path.isfile(src):
-			raise FileNotFoundError(f"Required runtime file not found: {src}")
-		files.append((src, dst))
-
-	for src, dst in optional_runtime:
-		if os.path.isfile(src):
-			files.append((src, dst))
-		else:
-			print(f"Warning: optional runtime file not found, skipping: {src}")
-
-	includes = glob.glob(f"{metaffi_win_home}/include/*")
-	includes = ["include/" + os.path.basename(incfile) for incfile in includes]
-	files.extend(includes)
-
-	expanded_files = []
-	for file_entry in files:
-		if isinstance(file_entry, str) and "*" in file_entry:
-			matches = glob.glob(os.path.join(metaffi_win_home, file_entry))
-			if not matches:
-				raise Exception(f"No files found matching pattern: {file_entry}")
-			expanded_files.extend(os.path.relpath(match, metaffi_win_home) for match in matches)
-		else:
-			expanded_files.append(file_entry)
-
-	return expanded_files
+def get_windows_metaffi_files(output_dir: str) -> List[FileEntry]:
+	"""Loads Windows file list from the manifest and resolves against output_dir."""
+	manifest = load_manifest()
+	return resolve_manifest_files(manifest["windows"]["files"], output_dir)
 
 
-def get_ubuntu_metaffi_files(metaffi_ubuntu_home: str):
-	files = []
-	files.extend(
-		[
-			"xllr.so",
-			"metaffi",
-			"uninstall",
-			"libboost_filesystem.so.*",
-			"libboost_program_options.so.*",
-			"libboost_thread.so.*",
-		]
-	)
-
-	includes = glob.glob(f"{metaffi_ubuntu_home}/include/*")
-	includes = ["include/" + os.path.basename(incfile) for incfile in includes]
-	files.extend(includes)
-
-	expanded_files = []
-	for file_entry in files:
-		if isinstance(file_entry, str) and "*" in file_entry:
-			matches = glob.glob(os.path.join(metaffi_ubuntu_home, file_entry))
-			if not matches:
-				raise Exception(f"No files found matching pattern: {file_entry}")
-			expanded_files.extend(os.path.relpath(match, metaffi_ubuntu_home) for match in matches)
-		else:
-			expanded_files.append(file_entry)
-
-	return expanded_files
+def get_ubuntu_metaffi_files(output_dir: str) -> List[FileEntry]:
+	"""Loads Ubuntu file list from the manifest and resolves against output_dir."""
+	manifest = load_manifest()
+	return resolve_manifest_files(manifest["ubuntu"]["files"], output_dir)
 
 
 def create_windows_exe(output_file_py: str, output_name: str):
@@ -240,7 +294,9 @@ def create_linux_executable(output_file_py: str, output_name: str):
 			output_file_py = "/mnt/" + output_file_py
 
 		wsl_command = """
-		python3 -m pip install pyinstaller pycrosskit python-dotenv distro
+		python3 -m venv .venv
+		source .venv/bin/activate
+		pip install pyinstaller pycrosskit python-dotenv distro
 		pyinstaller --onefile --console --hidden-import pycrosskit --hidden-import pycrosskit.envariables --hidden-import python-dotenv --hidden-import dotenv --hidden-import distro --name {} --distpath ./installers_output {}
 		""".format(
 			output_name, output_file_py
@@ -284,15 +340,15 @@ def cleanup_temp_files(*paths: str):
 			os.remove(p)
 
 
-def build_windows_installer(version: str, output_name: str | None):
-	metaffi_win_home = get_required_env_dir("METAFFI_WIN_HOME")
+def build_windows_installer(version: str, output_name: str | None, config: str):
+	output_dir = get_output_dir("windows", config)
 	os.makedirs("./installers_output", exist_ok=True)
 
 	create_uninstaller_exe()
-	shutil.copy2("./installers_output/uninstall.exe", metaffi_win_home)
+	shutil.copy2("./installers_output/uninstall.exe", output_dir)
 
-	windows_files = get_windows_metaffi_files(metaffi_win_home)
-	windows_zip = zip_installer_files(windows_files, metaffi_win_home)
+	windows_files = get_windows_metaffi_files(output_dir)
+	windows_zip = zip_installer_files(windows_files, output_dir)
 
 	output_file_py = "./installers_output/metaffi_installer_windows.py"
 	shutil.copy("templates/metaffi_installer_template.py", output_file_py)
@@ -306,79 +362,164 @@ def build_windows_installer(version: str, output_name: str | None):
 	return f"./installers_output/{output_name}.exe"
 
 
-def build_ubuntu_installer(version: str, output_name: str | None):
-	# On Ubuntu, fall back to METAFFI_HOME if METAFFI_UBUNTU_HOME is not set
-	env_name = "METAFFI_UBUNTU_HOME"
-	if not os.getenv(env_name) and platform.system() == "Linux":
-		env_name = "METAFFI_HOME"
-	metaffi_ubuntu_home = get_required_env_dir(env_name)
+def build_ubuntu_installer(version: str, output_name: str | None, config: str):
+	output_dir = get_output_dir("ubuntu", config)
 	os.makedirs("./installers_output", exist_ok=True)
 
 	create_uninstaller_elf()
-	shutil.copy2("./installers_output/uninstall", metaffi_ubuntu_home)
+	shutil.copy2("./installers_output/uninstall", output_dir)
 
-	ubuntu_files = get_ubuntu_metaffi_files(metaffi_ubuntu_home)
-	ubuntu_zip = zip_installer_files(ubuntu_files, metaffi_ubuntu_home)
+	ubuntu_files = get_ubuntu_metaffi_files(output_dir)
+	ubuntu_zip = zip_installer_files(ubuntu_files, output_dir)
 
 	output_file_py = "./installers_output/metaffi_installer_ubuntu.py"
 	shutil.copy("templates/metaffi_installer_template.py", output_file_py)
 	create_installer_file(output_file_py, b"", ubuntu_zip, version)
 
 	if output_name is None or output_name == "":
-		output_name = f"metaffi-installer-{version}-ubuntu"
+		ubuntu_tag = get_ubuntu_version_tag()
+		output_name = f"metaffi-installer-{version}-ubuntu-{ubuntu_tag}"
 
 	create_linux_executable(output_file_py, output_name)
 	cleanup_temp_files(output_file_py, "./installers_output/uninstall")
 	return f"./installers_output/{output_name}"
 
 
-def build_all_installers(version: str):
-	metaffi_ubuntu_home = get_required_env_dir("METAFFI_UBUNTU_HOME")
-	metaffi_win_home = get_required_env_dir("METAFFI_WIN_HOME")
+def build_all_installers(version: str, config: str):
+	windows_output_dir = get_output_dir("windows", config)
+	ubuntu_output_dir = get_output_dir("ubuntu", config)
 	os.makedirs("./installers_output", exist_ok=True)
 
 	create_uninstaller_exe()
 	create_uninstaller_elf()
 
-	shutil.copy2("./installers_output/uninstall.exe", metaffi_win_home)
-	shutil.copy2("./installers_output/uninstall", metaffi_ubuntu_home)
+	shutil.copy2("./installers_output/uninstall.exe", windows_output_dir)
+	shutil.copy2("./installers_output/uninstall", ubuntu_output_dir)
 
-	windows_files = get_windows_metaffi_files(metaffi_win_home)
-	ubuntu_files = get_ubuntu_metaffi_files(metaffi_ubuntu_home)
+	windows_files = get_windows_metaffi_files(windows_output_dir)
+	ubuntu_files = get_ubuntu_metaffi_files(ubuntu_output_dir)
 
-	windows_zip = zip_installer_files(windows_files, metaffi_win_home)
-	ubuntu_zip = zip_installer_files(ubuntu_files, metaffi_ubuntu_home)
+	windows_zip = zip_installer_files(windows_files, windows_output_dir)
+	ubuntu_zip = zip_installer_files(ubuntu_files, ubuntu_output_dir)
 
 	output_file_py = "./installers_output/metaffi_installer.py"
 	shutil.copy("templates/metaffi_installer_template.py", output_file_py)
 	create_installer_file(output_file_py, windows_zip, ubuntu_zip, version)
 
-	create_windows_exe(output_file_py, f"metaffi-installer-{version}")
-	create_linux_executable(output_file_py, f"metaffi-installer-{version}")
+	ubuntu_tag = get_ubuntu_version_tag()
+	create_windows_exe(output_file_py, f"metaffi-installer-{version}-windows")
+	create_linux_executable(output_file_py, f"metaffi-installer-{version}-ubuntu-{ubuntu_tag}")
 	cleanup_temp_files(output_file_py, "./installers_output/uninstall.exe", "./installers_output/uninstall")
 
 
+def prompt_choice(prompt_text: str, flag: str, choices: list[str], default: str | None = None) -> str:
+	"""Prompts the user to pick from a list of choices via stdin."""
+	choices_display = []
+	for c in choices:
+		if c == default:
+			choices_display.append(f"{c} (default)")
+		else:
+			choices_display.append(c)
+
+	print(f"\n{prompt_text} ({flag})")
+	for i, label in enumerate(choices_display, 1):
+		print(f"  {i}. {label}")
+
+	while True:
+		hint = f" [{default}]" if default else ""
+		raw = input(f"Enter choice (1-{len(choices)}){hint}: ").strip()
+
+		# Empty input → use default if available
+		if raw == "" and default is not None:
+			return default
+
+		# Accept the choice text directly (case-insensitive)
+		for c in choices:
+			if raw.lower() == c.lower():
+				return c
+
+		# Accept numeric index
+		try:
+			idx = int(raw)
+			if 1 <= idx <= len(choices):
+				return choices[idx - 1]
+		except ValueError:
+			pass
+
+		print(f"Invalid choice. Please enter a number 1-{len(choices)} or one of: {', '.join(choices)}")
+
+
+def prompt_string(prompt_text: str, flag: str, default: str | None = None) -> str:
+	"""Prompts the user for a free-text value via stdin."""
+	hint = f" [{default}]" if default else ""
+	raw = input(f"\n{prompt_text} ({flag}){hint}: ").strip()
+	if raw == "" and default is not None:
+		return default
+	if raw == "":
+		raise ValueError(f"A value is required for: {prompt_text}")
+	return raw
+
+
 def main():
-	parser = argparse.ArgumentParser(description="Build MetaFFI installers")
-	parser.add_argument("--target", choices=["all", "windows", "ubuntu"], default="all")
-	parser.add_argument("--version", default=METAFFI_VERSION)
-	parser.add_argument("--output-name", default=None, help="Optional output installer name (without extension)")
+	parser = argparse.ArgumentParser(
+		description="Build MetaFFI installers",
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+		epilog="""examples:
+  %(prog)s --target windows --config Debug
+  %(prog)s --target ubuntu --config Release --version 1.0.0
+  %(prog)s --target all --config Debug
+  %(prog)s                                    (interactive prompts)"""
+	)
+	parser.add_argument("--target", choices=["all", "windows", "ubuntu"], default=None,
+						help="Target platform: all, windows, or ubuntu")
+	parser.add_argument("--version", default=None,
+						help=f"Installer version (default: {METAFFI_VERSION})")
+	parser.add_argument("--config", default=None,
+						help="Build configuration: Debug or Release (default: Debug)")
+	parser.add_argument("--output-name", default=None,
+						help="Output installer name without extension (default: auto-generated)")
 	args = parser.parse_args()
 
-	if args.target == "all":
-		build_all_installers(args.version)
+	# Prompt for any missing switches
+	target = args.target if args.target is not None else prompt_choice(
+		"Select target platform:", "--target", ["all", "windows", "ubuntu"], default="all"
+	)
+
+	version = args.version if args.version is not None else prompt_string(
+		"Enter version", "--version", default=METAFFI_VERSION
+	)
+
+	config = args.config if args.config is not None else prompt_choice(
+		"Select build configuration:", "--config", ["Debug", "Release"], default="Debug"
+	)
+
+	# Only prompt for output-name if the flag was not provided at all
+	output_name_provided = args.output_name is not None
+	output_name = args.output_name
+	if output_name is not None and output_name.lower() == "auto":
+		output_name = None
+	if not output_name_provided and target != "all":
+		raw = input(f"\nOptional output installer name, without extension (--output-name) [auto]: ").strip()
+		if raw and raw.lower() != "auto":
+			output_name = raw
+
+	# Build
+	if target == "all":
+		build_all_installers(version, config)
 		print("Done")
 		return
-	if args.target == "windows":
-		output = build_windows_installer(args.version, args.output_name)
-		print(f"Done. Built: {os.path.abspath(output)}")
-		return
-	if args.target == "ubuntu":
-		output = build_ubuntu_installer(args.version, args.output_name)
+
+	if target == "windows":
+		output = build_windows_installer(version, output_name, config)
 		print(f"Done. Built: {os.path.abspath(output)}")
 		return
 
-	raise ValueError(f"Unknown target: {args.target}")
+	if target == "ubuntu":
+		output = build_ubuntu_installer(version, output_name, config)
+		print(f"Done. Built: {os.path.abspath(output)}")
+		return
+
+	raise ValueError(f"Unknown target: {target}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,23 @@
+{
+  "windows": {
+    "files": [
+      "xllr.dll",
+      "metaffi.exe",
+      "uninstall.exe",
+      { "src": "%SystemRoot%/system32/msvcp140.dll", "dest": "msvcp140.dll" },
+      { "src": "%SystemRoot%/system32/vcruntime140_1d.dll", "dest": "vcruntime140_1d.dll", "optional": true },
+      { "src": "%SystemRoot%/system32/vcruntime140d.dll", "dest": "vcruntime140d.dll", "optional": true },
+      { "src": "%SystemRoot%/system32/msvcp140d.dll", "dest": "msvcp140d.dll", "optional": true },
+      { "src": "%SystemRoot%/system32/ucrtbased.dll", "dest": "ucrtbased.dll", "optional": true },
+      { "src": "include/*", "dest": "include/" }
+    ]
+  },
+  "ubuntu": {
+    "files": [
+      "xllr.so",
+      "metaffi",
+      "uninstall",
+      { "src": "include/*", "dest": "include/" }
+    ]
+  }
+}
