@@ -43,9 +43,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: vcpkg-cache
-          key: vcpkg-cache-windows-x64-windows-${{ inputs.metaffi_root_ref }}-v1
+          key: vcpkg-cache-windows-x64-windows-static-md-${{ inputs.metaffi_root_ref }}-v1
           restore-keys: |
-            vcpkg-cache-windows-x64-windows-
+            vcpkg-cache-windows-x64-windows-static-md-
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -110,14 +110,14 @@ jobs:
         shell: pwsh
         run: |
           & "C:\vcpkg\vcpkg.exe" install `
-            spdlog:x64-windows `
-            doctest:x64-windows `
-            nlohmann-json:x64-windows `
-            boost-filesystem:x64-windows `
-            boost-dll:x64-windows `
-            boost-system:x64-windows `
-            boost-thread:x64-windows `
-            boost-program-options:x64-windows
+            spdlog:x64-windows-static-md `
+            doctest:x64-windows-static-md `
+            nlohmann-json:x64-windows-static-md `
+            boost-filesystem:x64-windows-static-md `
+            boost-dll:x64-windows-static-md `
+            boost-system:x64-windows-static-md `
+            boost-thread:x64-windows-static-md `
+            boost-program-options:x64-windows-static-md
 
       - name: Configure CMake
         shell: pwsh
@@ -125,8 +125,8 @@ jobs:
           $env:VCPKG_ROOT = "C:\vcpkg"
           $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
           $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
-          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
-          cmake -S "$env:GITHUB_WORKSPACE\metaffi-root" -B "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}" -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" -DVCPKG_ROOT="C:\vcpkg"
+          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;$env:PATH"
+          cmake -S "$env:GITHUB_WORKSPACE\metaffi-root" -B "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}" -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" -DVCPKG_ROOT="C:\vcpkg" -DVCPKG_TARGET_TRIPLET="x64-windows-static-md"
 
       - name: Capture Windows vcpkg package list
         if: success()
@@ -202,7 +202,7 @@ jobs:
         run: |
           $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
           $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
-          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
+          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;$env:PATH"
 
           $apiCppDllInSdk = "$env:METAFFI_HOME\sdk\api\cpp\metaffi.api.cpp.dll"
           $apiCppDllInRoot = "$env:METAFFI_HOME\metaffi.api.cpp.dll"
@@ -249,7 +249,7 @@ jobs:
         run: |
           $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
           $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
-          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
+          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;$env:PATH"
           $env:CGO_CFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
           $env:CGO_CPPFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
           $env:GOFLAGS = ""
@@ -320,7 +320,7 @@ jobs:
         run: |
           $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
           $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
-          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;C:\vcpkg\installed\x64-windows\bin;C:\vcpkg\installed\x64-windows\debug\bin;$env:PATH"
+          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;$env:PATH"
           $env:CGO_CFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
           $env:CGO_CPPFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
           $env:GOFLAGS = ""
@@ -340,6 +340,21 @@ jobs:
         with:
           name: metaffi-installer-windows
           path: installers_output/metaffi-installer-${{ inputs.version }}-windows.exe
+          if-no-files-found: error
+
+      - name: Build Windows plugin zips
+        shell: pwsh
+        run: |
+          $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
+          python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-python3" --target windows --version "${{ inputs.version }}"
+          python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-go"      --target windows --version "${{ inputs.version }}"
+          python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-jvm"     --target windows --version "${{ inputs.version }}"
+
+      - name: Upload Windows plugin zips
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-plugin-zips-windows
+          path: installers_output/metaffi-plugin-*-windows.zip
           if-no-files-found: error
 
   build-ubuntu:
@@ -497,6 +512,7 @@ jobs:
 
       - name: Verify dynamic library resolution
         run: |
+          export LD_LIBRARY_PATH="$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/lib:${LD_LIBRARY_PATH:-}"
           METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
           failed=0
           for bin in "$METAFFI_HOME/metaffi" "$METAFFI_HOME/xllr.so"; do
@@ -553,6 +569,22 @@ jobs:
           path: installers_output/metaffi-installer-${{ inputs.version }}-ubuntu
           if-no-files-found: error
 
+      - name: Build Ubuntu plugin zips
+        run: |
+          export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
+          # metaffi.api.accessor.so lives in sdk/api/jvm/ — copy to jvm/ where the manifest expects it
+          cp "$METAFFI_HOME/sdk/api/jvm/metaffi.api.accessor.so" "$METAFFI_HOME/jvm/"
+          python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-python3" --target ubuntu --version "${{ inputs.version }}"
+          python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-go"      --target ubuntu --version "${{ inputs.version }}"
+          python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-jvm"     --target ubuntu --version "${{ inputs.version }}"
+
+      - name: Upload Ubuntu plugin zips
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-plugin-zips-ubuntu
+          path: installers_output/metaffi-plugin-*-ubuntu.zip
+          if-no-files-found: error
+
   publish-release:
     name: Publish Release Assets
     if: ${{ inputs.publish }}
@@ -571,6 +603,18 @@ jobs:
           name: metaffi-installer-ubuntu
           path: dist
 
+      - name: Download Windows plugin zips
+        uses: actions/download-artifact@v4
+        with:
+          name: metaffi-plugin-zips-windows
+          path: dist
+
+      - name: Download Ubuntu plugin zips
+        uses: actions/download-artifact@v4
+        with:
+          name: metaffi-plugin-zips-ubuntu
+          path: dist
+
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -582,4 +626,6 @@ jobs:
           gh release upload "${TAG}" \
             "./dist/metaffi-installer-${VERSION}-windows.exe" \
             "./dist/metaffi-installer-${VERSION}-ubuntu" \
+            ./dist/metaffi-plugin-*-windows.zip \
+            ./dist/metaffi-plugin-*-ubuntu.zip \
             --clobber
