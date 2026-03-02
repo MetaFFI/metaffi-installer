@@ -440,6 +440,14 @@ jobs:
             boost-thread:x64-linux-dynamic \
             boost-program-options:x64-linux-dynamic
 
+      - name: Register vcpkg dynamic libs with system linker
+        run: |
+          printf '%s\n%s\n' \
+            "$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib" \
+            "$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/lib" \
+            | sudo tee /etc/ld.so.conf.d/vcpkg-dynamic.conf
+          sudo ldconfig
+
       - name: Configure CMake
         run: |
           export METAFFI_SOURCE_ROOT="$GITHUB_WORKSPACE/metaffi-root"
