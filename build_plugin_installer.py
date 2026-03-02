@@ -20,11 +20,12 @@ import zipfile
 class PluginInstallerBuilder:
 	"""Reads a plugin manifest and packages the plugin into a distributable zip."""
 
-	def __init__(self, plugin_dir: str, target: str, config: str, version_override: str | None, output_dir_override: str | None):
+	def __init__(self, plugin_dir: str, target: str, config: str, version_override: str | None, output_dir_override: str | None, build_type: str | None = None):
 		self.plugin_dir = os.path.abspath(plugin_dir)
 		self.install_dir = os.path.join(self.plugin_dir, 'install')
 		self.target = target
 		self.config = config
+		self.build_type = build_type
 
 		# Load and validate the manifest (lives under install/)
 		manifest_path = os.path.join(self.install_dir, 'plugin_manifest.json')
@@ -127,7 +128,8 @@ class PluginInstallerBuilder:
 		# Ensure output directory exists
 		os.makedirs('installers_output', exist_ok=True)
 
-		zip_name = f"metaffi-plugin-{self.plugin_name}-{self.version}-{self.target}.zip"
+		build_type_suffix = f"-{self.build_type}" if self.build_type else ""
+		zip_name = f"metaffi-plugin-{self.plugin_name}-{self.version}{build_type_suffix}-{self.target}.zip"
 		zip_path = os.path.join('installers_output', zip_name)
 
 		print(f"Building plugin installer: {zip_name}")
@@ -172,6 +174,7 @@ def main():
 	parser.add_argument('--config', default='Debug', choices=['Debug', 'Release'], help='Build configuration (default: Debug)')
 	parser.add_argument('--version', default=None, help='Version override (default: from manifest)')
 	parser.add_argument('--output-dir', default=None, help='Build output base directory (default: $METAFFI_HOME). Plugin files are resolved under <output-dir>/<plugin-name>/')
+	parser.add_argument('--build-type', default=None, help='Build type to embed in the zip name (e.g. Debug, Release). Omit to exclude from the name.')
 	args = parser.parse_args()
 
 	if not os.path.isdir(args.plugin):
@@ -183,7 +186,8 @@ def main():
 		target=args.target,
 		config=args.config,
 		version_override=args.version,
-		output_dir_override=args.output_dir
+		output_dir_override=args.output_dir,
+		build_type=args.build_type,
 	)
 
 	builder.build()

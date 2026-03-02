@@ -333,22 +333,22 @@ jobs:
         shell: pwsh
         run: |
           $env:METAFFI_WIN_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
-          python .\build_installer.py --target windows --version "${{ inputs.version }}" --config "${{ inputs.build_type }}" --output-name "metaffi-installer-${{ inputs.version }}-windows"
+          python .\build_installer.py --target windows --version "${{ inputs.version }}" --config "${{ inputs.build_type }}" --output-name "metaffi-installer-${{ inputs.version }}-${{ inputs.build_type }}-windows"
 
       - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: metaffi-installer-windows
-          path: installers_output/metaffi-installer-${{ inputs.version }}-windows.exe
+          path: installers_output/metaffi-installer-${{ inputs.version }}-${{ inputs.build_type }}-windows.exe
           if-no-files-found: error
 
       - name: Build Windows plugin zips
         shell: pwsh
         run: |
           $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
-          python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-python3" --target windows --version "${{ inputs.version }}"
-          python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-go"      --target windows --version "${{ inputs.version }}"
-          python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-jvm"     --target windows --version "${{ inputs.version }}"
+          python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-python3" --target windows --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
+          python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-go"      --target windows --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
+          python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-jvm"     --target windows --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
 
       - name: Upload Windows plugin zips
         uses: actions/upload-artifact@v4
@@ -568,21 +568,21 @@ jobs:
       - name: Build Ubuntu installer
         run: |
           export METAFFI_UBUNTU_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
-          python3 ./build_installer.py --target ubuntu --version "${{ inputs.version }}" --config "${{ inputs.build_type }}" --output-name "metaffi-installer-${{ inputs.version }}-ubuntu"
+          python3 ./build_installer.py --target ubuntu --version "${{ inputs.version }}" --config "${{ inputs.build_type }}" --output-name "metaffi-installer-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu"
 
       - name: Upload Ubuntu installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: metaffi-installer-ubuntu
-          path: installers_output/metaffi-installer-${{ inputs.version }}-ubuntu
+          path: installers_output/metaffi-installer-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu
           if-no-files-found: error
 
       - name: Build Ubuntu plugin zips
         run: |
           export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
-          python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-python3" --target ubuntu --version "${{ inputs.version }}"
-          python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-go"      --target ubuntu --version "${{ inputs.version }}"
-          python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-jvm"     --target ubuntu --version "${{ inputs.version }}"
+          python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-python3" --target ubuntu --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
+          python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-go"      --target ubuntu --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
+          python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-jvm"     --target ubuntu --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
 
       - name: Upload Ubuntu plugin zips
         uses: actions/upload-artifact@v4
@@ -597,6 +597,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs: [build-windows, build-ubuntu]
     steps:
+      - name: Checkout metaffi-installer
+        uses: actions/checkout@v4
+
       - name: Download Windows installer artifact
         uses: actions/download-artifact@v4
         with:
@@ -628,10 +631,36 @@ jobs:
           set -euo pipefail
           VERSION="${{ inputs.version }}"
           TAG="v${VERSION}"
-          gh release view "${TAG}" >/dev/null 2>&1 || gh release create "${TAG}" --title "MetaFFI ${VERSION}" --notes "Manual CI build"
+          gh release view "${TAG}" >/dev/null 2>&1 || gh release create "${TAG}" --title "MetaFFI ${VERSION}" --notes-file RELEASE_NOTES.md
+          BUILD_TYPE="${{ inputs.build_type }}"
           gh release upload "${TAG}" \
-            "./dist/metaffi-installer-${VERSION}-windows.exe" \
-            "./dist/metaffi-installer-${VERSION}-ubuntu" \
+            "./dist/metaffi-installer-${VERSION}-${BUILD_TYPE}-windows.exe" \
+            "./dist/metaffi-installer-${VERSION}-${BUILD_TYPE}-ubuntu" \
             ./dist/metaffi-plugin-*-windows.zip \
             ./dist/metaffi-plugin-*-ubuntu.zip \
             --clobber
+
+      - name: Tag all MetaFFI repositories
+        env:
+          GH_TOKEN: ${{ secrets.METAFFI_RELEASE_PAT }}
+        run: |
+          set -euo pipefail
+          TAG="v${{ inputs.version }}"
+          REPOS=(metaffi-core lang-plugin-python3 lang-plugin-go lang-plugin-jvm plugin-sdk metaffi-root)
+          for REPO in "${REPOS[@]}"; do
+            SHA=$(gh api "repos/MetaFFI/${REPO}/commits/main" --jq '.sha' 2>/dev/null || true)
+            if [ -z "${SHA}" ]; then
+              echo "WARNING: Could not resolve HEAD SHA for ${REPO}, skipping."
+              continue
+            fi
+            EXISTS=$(gh api "repos/MetaFFI/${REPO}/git/ref/tags/${TAG}" --jq '.ref' 2>/dev/null || true)
+            if [ -n "${EXISTS}" ]; then
+              echo "Tag ${TAG} already exists in ${REPO}, skipping."
+              continue
+            fi
+            gh api "repos/MetaFFI/${REPO}/git/refs" \
+              -f "ref=refs/tags/${TAG}" \
+              -f "sha=${SHA}"
+            echo "Tagged ${REPO} at ${SHA} as ${TAG}"
+          done
+          echo "All repos tagged."
