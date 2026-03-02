@@ -52,7 +52,15 @@ def get_project_root() -> str:
 
 
 def get_output_dir(target: str, config: str) -> str:
-	"""Derives the output directory path from convention: {project_root}/output/{os}/x64/{config}/."""
+	"""Derives the output directory path from convention: {project_root}/output/{os}/x64/{config}/.
+	In CI (or any env where metaffi-root is a subdirectory), METAFFI_WIN_HOME / METAFFI_UBUNTU_HOME
+	override the default derived path."""
+	env_var = {"windows": "METAFFI_WIN_HOME", "ubuntu": "METAFFI_UBUNTU_HOME"}.get(target)
+	if env_var and os.environ.get(env_var):
+		path = os.environ[env_var]
+		assert os.path.isdir(path), f"Output dir not found: {path}"
+		return path.replace("\\", "/") + "/"
+
 	os_name = {"windows": "windows", "ubuntu": "ubuntu"}[target]
 	path = os.path.join(get_project_root(), "output", os_name, "x64", config)
 	assert os.path.isdir(path), f"Output dir not found: {path}"
