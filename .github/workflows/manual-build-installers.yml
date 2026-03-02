@@ -580,8 +580,6 @@ jobs:
       - name: Build Ubuntu plugin zips
         run: |
           export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
-          # metaffi.api.accessor.so lives in sdk/api/jvm/ — copy to jvm/ where the manifest expects it
-          cp "$METAFFI_HOME/sdk/api/jvm/metaffi.api.accessor.so" "$METAFFI_HOME/jvm/"
           python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-python3" --target ubuntu --version "${{ inputs.version }}"
           python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-go"      --target ubuntu --version "${{ inputs.version }}"
           python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-jvm"     --target ubuntu --version "${{ inputs.version }}"
