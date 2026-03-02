@@ -653,7 +653,7 @@ jobs:
               echo "WARNING: Could not resolve HEAD SHA for ${REPO}, skipping."
               continue
             fi
-            EXISTS=$(gh api "repos/MetaFFI/${REPO}/git/ref/tags/${TAG}" --jq '.ref' 2>/dev/null || true)
+            EXISTS=$(gh api "repos/MetaFFI/${REPO}/git/ref/tags/${TAG}" --jq '.ref // empty' 2>/dev/null || true)
             if [ -n "${EXISTS}" ]; then
               echo "Tag ${TAG} already exists in ${REPO}, skipping."
               continue
