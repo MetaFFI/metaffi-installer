@@ -333,7 +333,7 @@ jobs:
         shell: pwsh
         run: |
           $env:METAFFI_WIN_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
-          python .\build_installer.py --target windows --version "${{ inputs.version }}" --output-name "metaffi-installer-${{ inputs.version }}-windows"
+          python .\build_installer.py --target windows --version "${{ inputs.version }}" --config "${{ inputs.build_type }}" --output-name "metaffi-installer-${{ inputs.version }}-windows"
 
       - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
@@ -568,7 +568,7 @@ jobs:
       - name: Build Ubuntu installer
         run: |
           export METAFFI_UBUNTU_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
-          python3 ./build_installer.py --target ubuntu --version "${{ inputs.version }}" --output-name "metaffi-installer-${{ inputs.version }}-ubuntu"
+          python3 ./build_installer.py --target ubuntu --version "${{ inputs.version }}" --config "${{ inputs.build_type }}" --output-name "metaffi-installer-${{ inputs.version }}-ubuntu"
 
       - name: Upload Ubuntu installer artifact
         uses: actions/upload-artifact@v4
