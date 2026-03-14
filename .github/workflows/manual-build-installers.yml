@@ -176,7 +176,11 @@ jobs:
 
       - name: Build MetaFFI
         shell: pwsh
-        run: cmake --build "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" --target MetaFFI --config "${{ inputs.build_type }}"
+        run: |
+          $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
+          $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
+          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;$env:PATH"
+          cmake --build "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" --target MetaFFI --config "${{ inputs.build_type }}"
 
       - name: Build Windows CTest prerequisites
         shell: pwsh
@@ -377,7 +381,7 @@ jobs:
       - name: Install base dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build python3-pip python3-dev autoconf autoconf-archive automake libtool
+          sudo apt-get install -y build-essential ninja-build python3-pip python3-dev autoconf autoconf-archive automake libtool libclang-dev
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -497,7 +501,10 @@ jobs:
 
       - name: Build MetaFFI
         run: |
-          export LD_LIBRARY_PATH="$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/lib:${LD_LIBRARY_PATH:-}"
+          export METAFFI_SOURCE_ROOT="$GITHUB_WORKSPACE/metaffi-root"
+          export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
+          export PATH="$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$JAVA_HOME/bin:$PATH"
+          export LD_LIBRARY_PATH="$JAVA_HOME/lib/server:$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/lib:${LD_LIBRARY_PATH:-}"
           cmake --build "$GITHUB_WORKSPACE/metaffi-root/cmake-build-${{ inputs.build_type }}" --target MetaFFI --config "${{ inputs.build_type }}"
 
       - name: Build Ubuntu CTest prerequisites
