@@ -345,7 +345,7 @@ jobs:
       - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: metaffi-installer-windows
+          name: metaffi-installer-${{ inputs.version }}-${{ inputs.build_type }}-windows
           path: installers_output/metaffi-installer-${{ inputs.version }}-${{ inputs.build_type }}-windows.exe
           if-no-files-found: error
 
@@ -608,7 +608,7 @@ jobs:
       - name: Upload Ubuntu installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: metaffi-installer-ubuntu
+          name: metaffi-installer-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu
           path: installers_output/metaffi-installer-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu
           if-no-files-found: error
 
@@ -657,22 +657,10 @@ jobs:
       - name: Checkout metaffi-installer
         uses: actions/checkout@v4
 
-      - name: Download Windows installer artifact
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: metaffi-installer-windows
-          path: dist
-
-      - name: Download Ubuntu installer artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: metaffi-installer-ubuntu
-          path: dist
-
-      - name: Download all plugin zips
-        uses: actions/download-artifact@v4
-        with:
-          pattern: metaffi-plugin-*
+          pattern: metaffi-*
           path: dist
           merge-multiple: true
 
