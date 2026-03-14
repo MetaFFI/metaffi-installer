@@ -349,6 +349,7 @@ jobs:
           python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-python3" --target windows --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
           python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-go"      --target windows --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
           python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-jvm"     --target windows --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
+          python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-cpp"     --target windows --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
 
       - name: Upload Windows plugin zips
         uses: actions/upload-artifact@v4
@@ -583,6 +584,7 @@ jobs:
           python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-python3" --target ubuntu --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
           python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-go"      --target ubuntu --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
           python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-jvm"     --target ubuntu --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
+          python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-cpp"     --target ubuntu --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
 
       - name: Upload Ubuntu plugin zips
         uses: actions/upload-artifact@v4
@@ -646,7 +648,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="v${{ inputs.version }}"
-          REPOS=(metaffi-core lang-plugin-python3 lang-plugin-go lang-plugin-jvm plugin-sdk metaffi-root)
+          REPOS=(metaffi-core lang-plugin-python3 lang-plugin-go lang-plugin-jvm lang-plugin-cpp plugin-sdk metaffi-root)
           for REPO in "${REPOS[@]}"; do
             SHA=$(gh api "repos/MetaFFI/${REPO}/commits/main" --jq '.sha' 2>/dev/null || true)
             if [ -z "${SHA}" ]; then
