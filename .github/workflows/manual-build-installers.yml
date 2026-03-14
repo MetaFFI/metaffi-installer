@@ -193,7 +193,10 @@ jobs:
             "jvm_api_test_classes",
             "jvm_host_compiler_test_classes",
             "jvm_host_compiler_e2e_test_classes",
-            "go_api_test"
+            "go_api_test",
+            "cpp_call_go_test",
+            "cpp_call_python3_test",
+            "cpp_call_java_test"
           )
 
           foreach($target in $targets){
@@ -324,7 +327,7 @@ jobs:
         run: |
           $env:METAFFI_SOURCE_ROOT = "$env:GITHUB_WORKSPACE\metaffi-root"
           $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
-          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;$env:PATH"
+          $env:PATH = "$env:pythonLocation;$env:pythonLocation\Scripts;$env:METAFFI_HOME\sdk\api\cpp;$env:METAFFI_HOME;$env:METAFFI_HOME\jvm;$env:METAFFI_HOME\go;$env:METAFFI_HOME\cpp;$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server;$env:PATH"
           $env:CGO_CFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
           $env:CGO_CPPFLAGS = "-I$env:METAFFI_HOME -I$env:METAFFI_SOURCE_ROOT\sdk"
           $env:GOFLAGS = ""
@@ -519,6 +522,9 @@ jobs:
             jvm_host_compiler_test_classes
             jvm_host_compiler_e2e_test_classes
             go_api_test
+            cpp_call_go_test
+            cpp_call_python3_test
+            cpp_call_java_test
           )
 
           for target in "${targets[@]}"; do
@@ -563,7 +569,7 @@ jobs:
           export METAFFI_SOURCE_ROOT="$GITHUB_WORKSPACE/metaffi-root"
           export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
           export PATH="$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$JAVA_HOME/bin:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/bin:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/bin:$PATH"
-          export LD_LIBRARY_PATH="$JAVA_HOME/lib/server:$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/lib:${LD_LIBRARY_PATH:-}"
+          export LD_LIBRARY_PATH="$JAVA_HOME/lib/server:$METAFFI_HOME:$METAFFI_HOME/sdk/api/cpp:$METAFFI_HOME/go:$METAFFI_HOME/cpp:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/lib:$GITHUB_WORKSPACE/vcpkg/installed/x64-linux-dynamic/debug/lib:${LD_LIBRARY_PATH:-}"
           export CGO_CFLAGS="-I$METAFFI_HOME -I$METAFFI_SOURCE_ROOT/sdk"
           export CGO_CPPFLAGS="-I$METAFFI_HOME -I$METAFFI_SOURCE_ROOT/sdk"
           export GOFLAGS=""

@@ -8,7 +8,8 @@
 - **Go plugin**: Restored and updated with the new SDK; CGO include flags now correctly propagated in CTest runners.
 - **JVM plugin**: Restored with the new SDK; JAVA_HOME kept aligned with Java executable across CTest runs; `DestroyJavaVM` hang avoided by letting process exit handle cleanup.
 - **Python3 plugin**: PATH handling in CTest runners corrected.
-- **CI**: Dual-platform CI (Windows + Ubuntu) fully green; all 8 release artifacts produced automatically (2 installers + 6 plugin zips).
+- **C++ plugin**: New plugin installer for C/C++ language support. Includes runtime (`xllr.cpp`), API (`metaffi.api.cpp`), compiler (`metaffi.compiler.cpp`), IDL (`metaffi.idl.cpp`), and libclang.
+- **CI**: Dual-platform CI (Windows + Ubuntu) fully green; all 10 release artifacts produced automatically (2 installers + 8 plugin zips).
 
 ### Known Issues
 - `java->go` MetaFFI full benchmark crashes (ShouldNotReachHere / handle-release lifecycle) — investigation ongoing.
