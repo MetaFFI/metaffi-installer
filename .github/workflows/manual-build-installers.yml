@@ -358,11 +358,32 @@ jobs:
           python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-jvm"     --target windows --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
           python .\build_plugin_installer.py --plugin "metaffi-root\lang-plugin-cpp"     --target windows --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
 
-      - name: Upload Windows plugin zips
+      - name: Upload Windows python3 plugin zip
         uses: actions/upload-artifact@v4
         with:
-          name: metaffi-plugin-zips-windows
-          path: installers_output/metaffi-plugin-*-windows.zip
+          name: metaffi-plugin-python3-${{ inputs.version }}-${{ inputs.build_type }}-windows
+          path: installers_output/metaffi-plugin-python3-${{ inputs.version }}-${{ inputs.build_type }}-windows.zip
+          if-no-files-found: error
+
+      - name: Upload Windows go plugin zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-plugin-go-${{ inputs.version }}-${{ inputs.build_type }}-windows
+          path: installers_output/metaffi-plugin-go-${{ inputs.version }}-${{ inputs.build_type }}-windows.zip
+          if-no-files-found: error
+
+      - name: Upload Windows jvm plugin zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-plugin-jvm-${{ inputs.version }}-${{ inputs.build_type }}-windows
+          path: installers_output/metaffi-plugin-jvm-${{ inputs.version }}-${{ inputs.build_type }}-windows.zip
+          if-no-files-found: error
+
+      - name: Upload Windows cpp plugin zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-plugin-cpp-${{ inputs.version }}-${{ inputs.build_type }}-windows
+          path: installers_output/metaffi-plugin-cpp-${{ inputs.version }}-${{ inputs.build_type }}-windows.zip
           if-no-files-found: error
 
   build-ubuntu:
@@ -599,11 +620,32 @@ jobs:
           python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-jvm"     --target ubuntu --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
           python3 ./build_plugin_installer.py --plugin "metaffi-root/lang-plugin-cpp"     --target ubuntu --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
 
-      - name: Upload Ubuntu plugin zips
+      - name: Upload Ubuntu python3 plugin zip
         uses: actions/upload-artifact@v4
         with:
-          name: metaffi-plugin-zips-ubuntu
-          path: installers_output/metaffi-plugin-*-ubuntu.zip
+          name: metaffi-plugin-python3-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu
+          path: installers_output/metaffi-plugin-python3-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu.zip
+          if-no-files-found: error
+
+      - name: Upload Ubuntu go plugin zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-plugin-go-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu
+          path: installers_output/metaffi-plugin-go-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu.zip
+          if-no-files-found: error
+
+      - name: Upload Ubuntu jvm plugin zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-plugin-jvm-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu
+          path: installers_output/metaffi-plugin-jvm-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu.zip
+          if-no-files-found: error
+
+      - name: Upload Ubuntu cpp plugin zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-plugin-cpp-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu
+          path: installers_output/metaffi-plugin-cpp-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu.zip
           if-no-files-found: error
 
   publish-release:
@@ -627,17 +669,12 @@ jobs:
           name: metaffi-installer-ubuntu
           path: dist
 
-      - name: Download Windows plugin zips
+      - name: Download all plugin zips
         uses: actions/download-artifact@v4
         with:
-          name: metaffi-plugin-zips-windows
+          pattern: metaffi-plugin-*
           path: dist
-
-      - name: Download Ubuntu plugin zips
-        uses: actions/download-artifact@v4
-        with:
-          name: metaffi-plugin-zips-ubuntu
-          path: dist
+          merge-multiple: true
 
       - name: Publish release assets
         env:
