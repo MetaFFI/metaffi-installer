@@ -8,23 +8,31 @@
 import importlib
 import sys
 import subprocess
+import shutil
 
 
+def _find_system_python() -> str:
+	"""Find system Python interpreter (not the PyInstaller bundle)."""
+	if getattr(sys, 'frozen', False):
+		for name in ("python", "python3"):
+			if shutil.which(name):
+				return name
+		raise RuntimeError("Cannot find system Python interpreter")
+	return sys.executable
 
 
 def ensure_package(package_name, pip_package_name=None):
 	try:
 		importlib.import_module(package_name)
 	except ImportError:
-		import subprocess
-		import sys
 		print(f"Installing {package_name}...")
-		
+
 		if pip_package_name is None:
 			pip_package_name = package_name
-		
-		subprocess.check_call([sys.executable, "-m", "pip", "install", pip_package_name])
-		
+
+		python_exe = _find_system_python()
+		subprocess.check_call([python_exe, "-m", "pip", "install", pip_package_name])
+
 		print(f"{package_name} installed successfully!")
 
 

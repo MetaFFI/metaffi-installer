@@ -349,6 +349,18 @@ jobs:
           path: installers_output/metaffi-installer-${{ inputs.version }}-${{ inputs.build_type }}-windows.exe
           if-no-files-found: error
 
+      - name: Build Windows core zip
+        shell: pwsh
+        run: |
+          python build_core_zip.py --target windows --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
+
+      - name: Upload Windows core zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-core-${{ inputs.version }}-${{ inputs.build_type }}-windows
+          path: installers_output/metaffi-core-${{ inputs.version }}-${{ inputs.build_type }}-windows.zip
+          if-no-files-found: error
+
       - name: Build Windows plugin zips
         shell: pwsh
         run: |
@@ -612,6 +624,17 @@ jobs:
           path: installers_output/metaffi-installer-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu
           if-no-files-found: error
 
+      - name: Build Ubuntu core zip
+        run: |
+          python3 build_core_zip.py --target ubuntu --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
+
+      - name: Upload Ubuntu core zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaffi-core-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu
+          path: installers_output/metaffi-core-${{ inputs.version }}-${{ inputs.build_type }}-ubuntu.zip
+          if-no-files-found: error
+
       - name: Build Ubuntu plugin zips
         run: |
           export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
@@ -676,6 +699,8 @@ jobs:
           gh release upload "${TAG}" \
             "./dist/metaffi-installer-${VERSION}-${BUILD_TYPE}-windows.exe" \
             "./dist/metaffi-installer-${VERSION}-${BUILD_TYPE}-ubuntu" \
+            "./dist/metaffi-core-${VERSION}-${BUILD_TYPE}-windows.zip" \
+            "./dist/metaffi-core-${VERSION}-${BUILD_TYPE}-ubuntu.zip" \
             ./dist/metaffi-plugin-*-windows.zip \
             ./dist/metaffi-plugin-*-ubuntu.zip \
             --clobber
