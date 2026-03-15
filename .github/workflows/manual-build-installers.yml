@@ -352,6 +352,7 @@ jobs:
       - name: Build Windows core zip
         shell: pwsh
         run: |
+          $env:METAFFI_HOME = "$env:GITHUB_WORKSPACE\metaffi-root\output\windows\x64\${{ inputs.build_type }}"
           python build_core_zip.py --target windows --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
 
       - name: Upload Windows core zip
@@ -626,6 +627,7 @@ jobs:
 
       - name: Build Ubuntu core zip
         run: |
+          export METAFFI_HOME="$GITHUB_WORKSPACE/metaffi-root/output/ubuntu/x64/${{ inputs.build_type }}"
           python3 build_core_zip.py --target ubuntu --version "${{ inputs.version }}" --build-type "${{ inputs.build_type }}"
 
       - name: Upload Ubuntu core zip
