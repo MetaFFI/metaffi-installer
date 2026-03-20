@@ -114,6 +114,7 @@ jobs:
             doctest:x64-windows-static-md `
             nlohmann-json:x64-windows-static-md `
             boost-filesystem:x64-windows-static-md `
+            boost-algorithm:x64-windows-static-md `
             boost-dll:x64-windows-static-md `
             boost-system:x64-windows-static-md `
             boost-thread:x64-windows-static-md `
@@ -477,6 +478,7 @@ jobs:
             doctest:x64-linux-dynamic \
             nlohmann-json:x64-linux-dynamic \
             boost-filesystem:x64-linux-dynamic \
+            boost-algorithm:x64-linux-dynamic \
             boost-dll:x64-linux-dynamic \
             boost-system:x64-linux-dynamic \
             boost-thread:x64-linux-dynamic \
