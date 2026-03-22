@@ -1,4 +1,4 @@
-## MetaFFI v0.3.1
+## MetaFFI v0.3.5
 
 ### Changes
 - **Static linking**: All core and plugin libraries now link vcpkg dependencies statically (`x64-windows-static-md` / `x64-linux-dynamic`), eliminating runtime vcpkg DLL/SO path issues on end-user machines.
