@@ -322,6 +322,7 @@ jobs:
           }
 
           ctest --test-dir "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" -R "^jvm_host_test$" -V --output-on-failure
+          ctest --test-dir "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" -R "^jvm_host_third_party_test$" -V --output-on-failure
 
       - name: Run CTests (fail-fast gate)
         shell: pwsh
@@ -335,10 +336,10 @@ jobs:
           $env:GOWORK = "auto"
           $env:METAFFI_JVM_TEST_TRACE = "1"
           $env:METAFFI_JVM_DIAG = "1"
-          # jvm_host_test is already validated by the diagnostic step above (passes in isolation).
-          # It fails in the full sequential run due to test-ordering / environment state left
-          # by the preceding jvm_host_compiler_e2e_test. Exclude it here to avoid a false fail.
-          ctest --test-dir "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure -E "^jvm_host_test$"
+          # jvm_host_test and jvm_host_third_party_test are validated by the diagnostic steps above
+          # (both pass in isolation). They hang in the full sequential run due to environment state
+          # left by the preceding jvm_host_compiler_e2e_test (VEH/SEH interaction on Windows).
+          ctest --test-dir "$env:GITHUB_WORKSPACE\metaffi-root\cmake-build-${{ inputs.build_type }}" -C "${{ inputs.build_type }}" --output-on-failure -E "^(jvm_host_test|jvm_host_third_party_test)$"
 
       - name: Build Windows installer
         shell: pwsh
